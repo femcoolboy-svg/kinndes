@@ -14,13 +14,13 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('.'));
 app.use(session({
-    secret: 'kinders_super_secret_key_2024',
+    secret: 'kinders_super_secret_2024',
     resave: false,
     saveUninitialized: false,
-    cookie: { maxAge: 7 * 24 * 60 * 60 * 1000 } // 7 дней
+    cookie: { maxAge: 7 * 24 * 60 * 60 * 1000 }
 }));
 
-// ------------------ ХРАНИЛИЩЕ В ПАМЯТИ ------------------
+// ----- Хранилища -----
 let users = [];
 let friends = [];
 let groups = [];
@@ -35,13 +35,13 @@ let nextInviteId = 1;
 let nextMsgId = 1;
 let nextGroupMsgId = 1;
 
-// Создаём админа prisanok (пароль qazzaq32qaz)
+// Админ prisanok / qazzaq32qaz
 (async () => {
-    const adminPassHash = await bcrypt.hash('qazzaq32qaz', 10);
+    const hash = await bcrypt.hash('qazzaq32qaz', 10);
     users.push({
         id: nextUserId++,
         username: 'prisanok',
-        passwordHash: adminPassHash,
+        passwordHash: hash,
         tag: '0001',
         created_at: new Date().toISOString(),
         avatar: null,
@@ -53,15 +53,13 @@ let nextGroupMsgId = 1;
     });
 })();
 
-function generateTag() {
-    return Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-}
+function generateTag() { return Math.floor(Math.random()*10000).toString().padStart(4,'0'); }
 
-// ------------------ МАРШРУТЫ ------------------
+// ----- Маршруты -----
 app.post('/register', async (req, res) => {
     const { username, password } = req.body;
-    if (!username || !password) return res.json({ success: false, error: 'Заполните все поля' });
-    if (users.find(u => u.username === username)) return res.json({ success: false, error: 'Никнейм занят' });
+    if (!username || !password) return res.json({ success: false, error: 'Заполните поля' });
+    if (users.find(u => u.username === username)) return res.json({ success: false, error: 'Ник занят' });
     if (password.length < 4) return res.json({ success: false, error: 'Пароль минимум 4 символа' });
     const hash = await bcrypt.hash(password, 10);
     const newUser = {
@@ -70,12 +68,7 @@ app.post('/register', async (req, res) => {
         passwordHash: hash,
         tag: generateTag(),
         created_at: new Date().toISOString(),
-        avatar: null,
-        banner: null,
-        bio: '',
-        status: 'online',
-        plus: false,
-        banned: false
+        avatar: null, banner: null, bio: '', status: 'online', plus: false, banned: false
     };
     users.push(newUser);
     req.session.userId = newUser.id;
@@ -85,9 +78,9 @@ app.post('/register', async (req, res) => {
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
     const user = users.find(u => u.username === username && !u.banned);
-    if (!user) return res.json({ success: false, error: 'Неверное имя или пароль' });
+    if (!user) return res.json({ success: false, error: 'Неверные данные' });
     const valid = await bcrypt.compare(password, user.passwordHash);
-    if (!valid) return res.json({ success: false, error: 'Неверное имя или пароль' });
+    if (!valid) return res.json({ success: false, error: 'Неверные данные' });
     req.session.userId = user.id;
     res.json({ success: true, user: { id: user.id, username: user.username, tag: user.tag } });
 });
@@ -112,7 +105,7 @@ app.post('/friends', (req, res) => {
     const friendList = userFriends.map(f => {
         const friendId = f.user_id === userId ? f.friend_id : f.user_id;
         const friend = users.find(u => u.id === friendId);
-        return { id: friend.id, username: friend.username, tag: friend.tag, avatar: friend.avatar, status: friend.status };
+        return { id: friend.id, username: friend.username, tag: friend.tag };
     });
     res.json({ friends: friendList });
 });
@@ -129,27 +122,26 @@ app.post('/requests', (req, res) => {
 });
 
 app.post('/friend/add', (req, res) => {
-    if (!req.session.userId) return res.json({ success: false, error: 'Не авторизован' });
+    if (!req.session.userId) return res.json({ success: false });
     const { to } = req.body;
     const from = req.session.userId;
-    if (from === to) return res.json({ success: false, error: 'Нельзя добавить себя' });
-    const existing = friends.find(f => (f.user_id === from && f.friend_id === to) || (f.user_id === to && f.friend_id === from));
-    if (existing) return res.json({ success: false, error: 'Запрос уже отправлен или вы уже друзья' });
+    if (from === to) return res.json({ success: false, error: 'Нельзя себя' });
+    if (friends.find(f => (f.user_id===from && f.friend_id===to) || (f.user_id===to && f.friend_id===from))) return res.json({ success: false, error: 'Уже есть' });
     friends.push({ id: nextFriendId++, user_id: from, friend_id: to, status: 'pending' });
     res.json({ success: true });
 });
 
 app.post('/friend/accept', (req, res) => {
     const { id } = req.body;
-    const friendRecord = friends.find(f => f.id === id);
-    if (friendRecord) friendRecord.status = 'accepted';
+    const fr = friends.find(f => f.id === id);
+    if (fr) fr.status = 'accepted';
     res.json({ success: true });
 });
 
 app.post('/friend/decline', (req, res) => {
     const { id } = req.body;
     const idx = friends.findIndex(f => f.id === id);
-    if (idx !== -1) friends.splice(idx, 1);
+    if (idx !== -1) friends.splice(idx,1);
     res.json({ success: true });
 });
 
@@ -164,14 +156,7 @@ app.post('/search', (req, res) => {
 app.post('/send-message', (req, res) => {
     if (!req.session.userId) return res.json({ success: false });
     const { to_user_id, message } = req.body;
-    const newMsg = {
-        id: nextMsgId++,
-        from_user_id: req.session.userId,
-        to_user_id,
-        message,
-        timestamp: new Date().toISOString()
-    };
-    privateMessages.push(newMsg);
+    privateMessages.push({ id: nextMsgId++, from_user_id: req.session.userId, to_user_id, message, timestamp: new Date().toISOString() });
     res.json({ success: true });
 });
 
@@ -179,32 +164,21 @@ app.post('/messages', (req, res) => {
     if (!req.session.userId) return res.json({ messages: [] });
     const { u2 } = req.body;
     const u1 = req.session.userId;
-    const chat = privateMessages.filter(m => (m.from_user_id === u1 && m.to_user_id === u2) || (m.from_user_id === u2 && m.to_user_id === u1));
-    chat.sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp));
+    const chat = privateMessages.filter(m => (m.from_user_id===u1 && m.to_user_id===u2) || (m.from_user_id===u2 && m.to_user_id===u1));
+    chat.sort((a,b)=>new Date(a.timestamp)-new Date(b.timestamp));
     res.json({ messages: chat });
 });
 
 // Группы
 app.post('/group/create', (req, res) => {
-    if (!req.session.userId) return res.json({ success: false, error: 'Не авторизован' });
+    if (!req.session.userId) return res.json({ success: false });
     const { name, members } = req.body;
     const owner = req.session.userId;
-    const allMembers = [...new Set([owner, ...(members || [])])];
+    const allMembers = [...new Set([owner, ...(members||[])])];
     if (allMembers.length < 2) return res.json({ success: false, error: 'Нужно минимум 2 участника' });
-    const newGroup = {
-        id: nextGroupId++,
-        name,
-        owner_id: owner,
-        created_at: new Date().toISOString(),
-        members: allMembers
-    };
+    const newGroup = { id: nextGroupId++, name, owner_id: owner, created_at: new Date().toISOString(), members: allMembers };
     groups.push(newGroup);
-    // Приглашения для добавленных пользователей
-    for (let m of allMembers) {
-        if (m !== owner) {
-            groupInvites.push({ id: nextInviteId++, group_id: newGroup.id, from_user_id: owner, to_user_id: m, status: 'pending' });
-        }
-    }
+    for (let m of allMembers) if (m !== owner) groupInvites.push({ id: nextInviteId++, group_id: newGroup.id, from_user_id: owner, to_user_id: m, status: 'pending' });
     res.json({ success: true });
 });
 
@@ -217,7 +191,7 @@ app.post('/groups', (req, res) => {
 
 app.post('/group/messages', (req, res) => {
     const { groupId } = req.body;
-    const msgs = groupMessages.filter(m => m.group_id === groupId).sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp));
+    const msgs = groupMessages.filter(m => m.group_id === groupId).sort((a,b)=>new Date(a.timestamp)-new Date(b.timestamp));
     res.json({ messages: msgs });
 });
 
@@ -227,29 +201,18 @@ app.post('/group/send-message', (req, res) => {
     const group = groups.find(g => g.id === group_id);
     if (!group || !group.members.includes(req.session.userId)) return res.json({ success: false });
     const fromUser = users.find(u => u.id === req.session.userId);
-    const newMsg = {
-        id: nextGroupMsgId++,
-        group_id,
-        from_user_id: req.session.userId,
-        fromName: fromUser.username,
-        message,
-        timestamp: new Date().toISOString()
-    };
+    const newMsg = { id: nextGroupMsgId++, group_id, from_user_id: req.session.userId, fromName: fromUser.username, message, timestamp: new Date().toISOString() };
     groupMessages.push(newMsg);
-    // Рассылаем участникам через сокеты
-    group.members.forEach(memberId => {
-        io.to(`user_${memberId}`).emit('group-message', { group: group_id, from: req.session.userId, fromName: fromUser.username, msg: message, time: newMsg.timestamp });
-    });
+    group.members.forEach(mid => io.to(`user_${mid}`).emit('group-message', { group: group_id, from: req.session.userId, fromName: fromUser.username, msg: message, time: newMsg.timestamp }));
     res.json({ success: true });
 });
 
 // Админка
 app.get('/all-users', (req, res) => {
     if (!req.session.userId) return res.json({ users: [] });
-    const currentUser = users.find(u => u.id === req.session.userId);
-    if (currentUser.username !== 'prisanok') return res.json({ users: [] });
-    const all = users.filter(u => !u.banned).map(u => ({ id: u.id, username: u.username, tag: u.tag }));
-    res.json({ users: all });
+    const cur = users.find(u => u.id === req.session.userId);
+    if (cur?.username !== 'prisanok') return res.json({ users: [] });
+    res.json({ users: users.filter(u => !u.banned).map(u => ({ id: u.id, username: u.username, tag: u.tag })) });
 });
 
 app.post('/ban', (req, res) => {
@@ -259,44 +222,23 @@ app.post('/ban', (req, res) => {
     res.json({ success: true });
 });
 
-// ------------------ WEB SOCKETS ------------------
+// WebSocket
 io.on('connection', (socket) => {
-    let userId = null;
-    socket.on('register', (id) => {
-        userId = id;
-        socket.join(`user_${id}`);
-    });
+    socket.on('register', (id) => { socket.join(`user_${id}`); });
     socket.on('private-message', (data) => {
         const { from, to, msg, fromName } = data;
-        const newMsg = {
-            id: nextMsgId++,
-            from_user_id: from,
-            to_user_id: to,
-            message: msg,
-            timestamp: new Date().toISOString()
-        };
-        privateMessages.push(newMsg);
-        io.to(`user_${to}`).emit('private-message', { from, msg, time: newMsg.timestamp, fromName });
+        privateMessages.push({ id: nextMsgId++, from_user_id: from, to_user_id: to, message: msg, timestamp: new Date().toISOString() });
+        io.to(`user_${to}`).emit('private-message', { from, msg, time: new Date().toISOString(), fromName });
     });
     socket.on('group-message', (data) => {
         const { group, from, fromName, msg } = data;
         const groupObj = groups.find(g => g.id === group);
         if (groupObj) {
-            const newMsg = {
-                id: nextGroupMsgId++,
-                group_id: group,
-                from_user_id: from,
-                fromName,
-                message: msg,
-                timestamp: new Date().toISOString()
-            };
-            groupMessages.push(newMsg);
-            groupObj.members.forEach(memberId => {
-                io.to(`user_${memberId}`).emit('group-message', { group, from, fromName, msg, time: newMsg.timestamp });
-            });
+            groupMessages.push({ id: nextGroupMsgId++, group_id: group, from_user_id: from, fromName, message: msg, timestamp: new Date().toISOString() });
+            groupObj.members.forEach(mid => io.to(`user_${mid}`).emit('group-message', { group, from, fromName, msg, time: new Date().toISOString() }));
         }
     });
 });
 
 const PORT = process.env.PORT || 10000;
-server.listen(PORT, () => console.log(`Kinders сервер на порту ${PORT}`));
+server.listen(PORT, () => console.log(`Kinders server on ${PORT}`));
