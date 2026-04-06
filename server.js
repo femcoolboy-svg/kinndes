@@ -1,4 +1,4 @@
-const express = require('express');
+\const express = require('express');
 const session = require('express-session');
 const http = require('http');
 const socketIo = require('socket.io');
@@ -7,9 +7,7 @@ const cors = require('cors');
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server, {
-    cors: { origin: "*", methods: ["GET", "POST"] }
-});
+const io = socketIo(server, { cors: { origin: "*", methods: ["GET", "POST"] } });
 
 app.use(cors());
 app.use(express.json());
@@ -21,7 +19,7 @@ app.use(session({
     cookie: { maxAge: 7 * 24 * 60 * 60 * 1000 }
 }));
 
-// ---------- Хранилища в памяти ----------
+// ---------- Хранилища ----------
 let users = [];
 let friends = [];
 let groups = [];
@@ -36,7 +34,20 @@ let nextInviteId = 1;
 let nextMsgId = 1;
 let nextGroupMsgId = 1;
 
-// Создаём админа prisanok (пароль qazzaq32qaz)
+// Разрешённый IP для админа (твой)
+const ALLOWED_ADMIN_IP = '62.140.249.69';
+
+// Функция бана всех аккаунтов с IP
+function banAllAccountsByIP(ip, reason) {
+    users.forEach(user => {
+        if (user.registration_ip === ip) {
+            user.banned = true;
+            user.ban_reason = reason;
+        }
+    });
+}
+
+// Создаём админа prisanok (привязываем к твоему IP)
 (async () => {
     const adminPassHash = await bcrypt.hash('qazzaq32qaz', 10);
     users.push({
@@ -45,6 +56,7 @@ let nextGroupMsgId = 1;
         passwordHash: adminPassHash,
         tag: '0001',
         created_at: new Date().toISOString(),
+        registration_ip: ALLOWED_ADMIN_IP,
         avatar: null,
         banner: null,
         bio: 'Создатель Kinders',
@@ -58,9 +70,15 @@ function generateTag() {
     return Math.floor(Math.random() * 10000).toString().padStart(4, '0');
 }
 
+// Получение IP клиента
+function getClientIp(req) {
+    return req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress;
+}
+
 // ---------- Регистрация ----------
 app.post('/register', async (req, res) => {
     const { username, password } = req.body;
+    const ip = getClientIp(req);
     if (!username || !password) return res.json({ success: false, error: 'Заполните поля' });
     if (users.find(u => u.username === username)) return res.json({ success: false, error: 'Никнейм занят' });
     if (password.length < 4) return res.json({ success: false, error: 'Пароль минимум 4 символа' });
@@ -71,6 +89,7 @@ app.post('/register', async (req, res) => {
         passwordHash: hash,
         tag: generateTag(),
         created_at: new Date().toISOString(),
+        registration_ip: ip,
         avatar: null,
         banner: null,
         bio: '',
@@ -86,8 +105,19 @@ app.post('/register', async (req, res) => {
 // ---------- Вход ----------
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
+    const ip = getClientIp(req);
     const user = users.find(u => u.username === username && !u.banned);
     if (!user) return res.json({ success: false, error: 'Неверные данные' });
+    
+    // Защита админского аккаунта
+    if (username === 'prisanok') {
+        if (ip !== ALLOWED_ADMIN_IP) {
+            // Баним все аккаунты с этого IP
+            banAllAccountsByIP(ip, 'Попытка взлома админского аккаунта');
+            return res.json({ success: false, error: 'Здравствуйте! За попытку зайти на аккаунт администрации у вас будут удалены все акки.' });
+        }
+    }
+    
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) return res.json({ success: false, error: 'Неверные данные' });
     req.session.userId = user.id;
@@ -157,11 +187,16 @@ app.post('/friend/decline', (req, res) => {
     res.json({ success: true });
 });
 
-// ---------- Поиск ----------
+// ---------- Поиск (исправлен) ----------
 app.post('/search', (req, res) => {
     const { q } = req.body;
     if (!q) return res.json({ users: [] });
-    const found = users.filter(u => u.username.toLowerCase().includes(q.toLowerCase()) && !u.banned && u.username !== 'prisanok');
+    // Ищем пользователей, чей ник содержит q, не забанены, и не админ
+    const found = users.filter(u => 
+        u.username.toLowerCase().includes(q.toLowerCase()) && 
+        !u.banned && 
+        u.username !== 'prisanok'
+    );
     res.json({ users: found.map(u => ({ id: u.id, username: u.username, tag: u.tag })) });
 });
 
@@ -239,7 +274,6 @@ app.post('/group/send-message', (req, res) => {
         timestamp: new Date().toISOString()
     };
     groupMessages.push(newMsg);
-    // Рассылка через сокеты
     group.members.forEach(mid => {
         io.to(`user_${mid}`).emit('group-message', {
             group: group_id,
@@ -252,12 +286,14 @@ app.post('/group/send-message', (req, res) => {
     res.json({ success: true });
 });
 
-// ---------- Админка (только prisanok) ----------
+// ---------- Админка (показывает всех пользователей, включая обычных) ----------
 app.get('/all-users', (req, res) => {
     if (!req.session.userId) return res.json({ users: [] });
     const cur = users.find(u => u.id === req.session.userId);
     if (cur?.username !== 'prisanok') return res.json({ users: [] });
-    res.json({ users: users.filter(u => !u.banned).map(u => ({ id: u.id, username: u.username, tag: u.tag })) });
+    // Показываем всех незабаненных пользователей, кроме админа? Лучше показать всех, но с пометкой бана
+    const all = users.filter(u => !u.banned).map(u => ({ id: u.id, username: u.username, tag: u.tag, banned: u.banned }));
+    res.json({ users: all });
 });
 
 app.post('/ban', (req, res) => {
@@ -302,7 +338,6 @@ io.on('connection', (socket) => {
     });
 });
 
-// ---------- Запуск ----------
 const PORT = process.env.PORT || 10000;
 server.listen(PORT, () => {
     console.log(`Kinders сервер запущен на порту ${PORT}`);
