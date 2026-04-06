@@ -1,62 +1,12 @@
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
-
-// Создаём папку uploads, если её нет
-const uploadDir = './uploads';
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
-
-// Настройка хранилища для multer
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => cb(null, uploadDir),
-    filename: (req, file, cb) => {
-        const unique = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, unique + path.extname(file.originalname));
-    }
-});
-const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } }); // 10MB
-
-// Эндпоинты загрузки (только для премиум)
-app.post('/upload-avatar', upload.single('avatar'), (req, res) => {
-    if (!req.session.userId) return res.status(401).json({ error: 'Не авторизован' });
-    const user = users.find(u => u.id === req.session.userId);
-    if (!user) return res.status(401).json({ error: 'Пользователь не найден' });
-    if (!req.file) return res.status(400).json({ error: 'Файл не загружен' });
-    const avatarUrl = `/uploads/${req.file.filename}`;
-    user.avatar = avatarUrl;
-    res.json({ success: true, avatarUrl });
-});
-
-app.post('/upload-gif-avatar', upload.single('gif'), (req, res) => {
-    if (!req.session.userId) return res.status(401).json({ error: 'Не авторизован' });
-    if (!isPremium(req.session.userId)) return res.status(403).json({ error: 'Только для Kinders+' });
-    if (!req.file) return res.status(400).json({ error: 'Файл не загружен' });
-    const url = `/uploads/${req.file.filename}`;
-    let settings = userSettings.find(s => s.userId === req.session.userId);
-    if (!settings) { settings = { userId: req.session.userId }; userSettings.push(settings); }
-    settings.animatedAvatar = url;
-    res.json({ success: true, url });
-});
-
-app.post('/upload-video-banner', upload.single('video'), (req, res) => {
-    if (!req.session.userId) return res.status(401).json({ error: 'Не авторизован' });
-    if (!isPremium(req.session.userId)) return res.status(403).json({ error: 'Только для Kinders+' });
-    if (!req.file) return res.status(400).json({ error: 'Файл не загружен' });
-    const url = `/uploads/${req.file.filename}`;
-    let settings = userSettings.find(s => s.userId === req.session.userId);
-    if (!settings) { settings = { userId: req.session.userId }; userSettings.push(settings); }
-    settings.videoBanner = url;
-    res.json({ success: true, url });
-});
-
-// Раздача статики из папки uploads
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 const express = require('express');
 const session = require('express-session');
 const http = require('http');
 const socketIo = require('socket.io');
 const bcrypt = require('bcrypt');
 const cors = require('cors');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const server = http.createServer(app);
@@ -66,123 +16,67 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('.'));
 app.use(session({
-    secret: 'kinders_super_secret_2024',
+    secret: 'kinders_secret_2024',
     resave: false,
     saveUninitialized: false,
-    cookie: { maxAge: 7 * 24 * 60 * 60 * 1000 }
+    cookie: { maxAge: 30 * 24 * 60 * 60 * 1000 }
 }));
 
-// ---------- Хранилища ----------
+// ---------- ЗАГРУЗКА ФАЙЛОВ ----------
+const uploadDir = './uploads';
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => cb(null, uploadDir),
+    filename: (req, file, cb) => cb(null, Date.now() + '-' + Math.round(Math.random() * 1E9) + path.extname(file.originalname))
+});
+const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// ---------- ДАННЫЕ В ПАМЯТИ ----------
 let users = [];
 let friends = [];
 let groups = [];
-let groupInvites = [];
 let privateMessages = [];
 let groupMessages = [];
 let userSettings = [];
 let subscriptions = []; // { userId, expiresAt, plan }
 
-let nextUserId = 1;
-let nextFriendId = 1;
-let nextGroupId = 1;
-let nextInviteId = 1;
-let nextMsgId = 1;
-let nextGroupMsgId = 1;
+let nextUserId = 1, nextFriendId = 1, nextGroupId = 1, nextMsgId = 1, nextGroupMsgId = 1;
 
-const ADMIN_ALLOWED_IP = '62.140.249.69';
-
-function getClientIp(req) {
-    return req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress;
-}
-
-// ---------- Премиум функции ----------
+// ---------- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ----------
 function isPremium(userId) {
     const sub = subscriptions.find(s => s.userId === userId);
     if (!sub) return false;
     if (new Date(sub.expiresAt) > new Date()) return true;
-    // просрочена
-    const idx = subscriptions.findIndex(s => s.userId === userId);
-    if (idx !== -1) subscriptions.splice(idx, 1);
+    subscriptions = subscriptions.filter(s => s.userId !== userId);
     return false;
 }
+function getMaxFriends(userId) { return isPremium(userId) ? 100 : 25; }
+function getMaxGroupMembers(userId) { return isPremium(userId) ? 20 : 9; }
+function addDays(date, days) { const d = new Date(date); d.setDate(d.getDate() + days); return d; }
 
-function getPremiumPlan(userId) {
-    const sub = subscriptions.find(s => s.userId === userId);
-    if (!sub) return null;
-    return sub.plan;
-}
-
-function getMaxFriends(userId) {
-    return isPremium(userId) ? 100 : 25;
-}
-
-function getMaxGroupMembers(userId) {
-    return isPremium(userId) ? 20 : 9;
-}
-
-function activatePremium(userId, planKey, days) {
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + days);
-    const idx = subscriptions.findIndex(s => s.userId === userId);
-    if (idx !== -1) subscriptions.splice(idx, 1);
-    subscriptions.push({ userId, expiresAt, plan: planKey });
-    console.log(`✅ Premium активирован для ${userId} до ${expiresAt}`);
-    return true;
-}
-
-// ---------- Создание админа ----------
+// ---------- АДМИН ----------
 (async () => {
-    const adminPassHash = await bcrypt.hash('qazzaq32qaz', 10);
-    users.push({
-        id: nextUserId++,
-        username: 'prisanok',
-        passwordHash: adminPassHash,
-        tag: '0001',
-        created_at: new Date().toISOString(),
-        avatar: null,
-        banner: null,
-        bio: 'Создатель Kinders',
-        status: 'online',
-        plus: true,
-        banned: false,
-        registration_ip: ADMIN_ALLOWED_IP
-    });
+    const hash = await bcrypt.hash('qazzaq32qaz', 10);
+    users.push({ id: nextUserId++, username: 'prisanok', passwordHash: hash, tag: '0001', created_at: new Date().toISOString(), avatar: null, bio: 'Создатель', banned: false, registration_ip: '62.140.249.69' });
 })();
+function generateTag() { return Math.floor(Math.random()*10000).toString().padStart(4,'0'); }
+function getClientIp(req) { return req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress; }
 
-function generateTag() {
-    return Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-}
-
-// ---------- Регистрация / вход ----------
+// ---------- РЕГИСТРАЦИЯ / ВХОД ----------
 app.post('/register', async (req, res) => {
     const { username, password } = req.body;
-    const clientIp = getClientIp(req);
     if (!username || !password) return res.json({ success: false, error: 'Заполните поля' });
-    if (users.find(u => u.username === username)) return res.json({ success: false, error: 'Никнейм занят' });
+    if (users.find(u => u.username === username)) return res.json({ success: false, error: 'Ник занят' });
     if (password.length < 4) return res.json({ success: false, error: 'Пароль минимум 4 символа' });
     const hash = await bcrypt.hash(password, 10);
-    const newUser = {
-        id: nextUserId++,
-        username,
-        passwordHash: hash,
-        tag: generateTag(),
-        created_at: new Date().toISOString(),
-        avatar: null,
-        banner: null,
-        bio: '',
-        status: 'online',
-        plus: false,
-        banned: false,
-        registration_ip: clientIp
-    };
+    const newUser = { id: nextUserId++, username, passwordHash: hash, tag: generateTag(), created_at: new Date().toISOString(), avatar: null, bio: '', banned: false, registration_ip: getClientIp(req) };
     users.push(newUser);
     req.session.userId = newUser.id;
     res.json({ success: true, user: { id: newUser.id, username: newUser.username, tag: newUser.tag } });
 });
-
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
-    const clientIp = getClientIp(req);
     const user = users.find(u => u.username === username && !u.banned);
     if (!user) return res.json({ success: false, error: 'Неверные данные' });
     const valid = await bcrypt.compare(password, user.passwordHash);
@@ -190,41 +84,16 @@ app.post('/login', async (req, res) => {
     req.session.userId = user.id;
     res.json({ success: true, user: { id: user.id, username: user.username, tag: user.tag } });
 });
-
 app.get('/session', (req, res) => {
     if (!req.session.userId) return res.json({ success: false });
     const user = users.find(u => u.id === req.session.userId && !u.banned);
     if (!user) return res.json({ success: false });
     const settings = userSettings.find(s => s.userId === user.id) || {};
-    res.json({
-        success: true,
-        user: {
-            id: user.id,
-            username: user.username,
-            tag: user.tag,
-            created_at: user.created_at,
-            avatar: user.avatar,
-            banner: user.banner,
-            bio: user.bio,
-            plus: user.plus
-        },
-        isPremium: isPremium(user.id),
-        premiumPlan: getPremiumPlan(user.id),
-        settings: {
-            nickColor: settings.nickColor || null,
-            animatedAvatar: settings.animatedAvatar || null,
-            videoBanner: settings.videoBanner || null,
-            plusBadge: settings.plusBadge || '⭐'
-        }
-    });
+    res.json({ success: true, user: { id: user.id, username: user.username, tag: user.tag, created_at: user.created_at, avatar: user.avatar }, isPremium: isPremium(user.id), settings: { nickColor: settings.nickColor, animatedAvatar: settings.animatedAvatar, videoBanner: settings.videoBanner, plusBadge: settings.plusBadge || '⭐' } });
 });
+app.post('/logout', (req, res) => { req.session.destroy(); res.json({ success: true }); });
 
-app.post('/logout', (req, res) => {
-    req.session.destroy();
-    res.json({ success: true });
-});
-
-// ---------- Друзья с лимитами ----------
+// ---------- ДРУЗЬЯ ----------
 app.post('/friends', (req, res) => {
     if (!req.session.userId) return res.json({ friends: [] });
     const userId = req.session.userId;
@@ -232,60 +101,35 @@ app.post('/friends', (req, res) => {
     const friendList = userFriends.map(f => {
         const friendId = f.user_id === userId ? f.friend_id : f.user_id;
         const friend = users.find(u => u.id === friendId);
-        const friendSettings = userSettings.find(s => s.userId === friendId) || {};
-        return {
-            id: friend.id,
-            username: friend.username,
-            tag: friend.tag,
-            avatar: friend.avatar,
-            nickColor: friendSettings.nickColor,
-            plusBadge: isPremium(friend.id) ? (friendSettings.plusBadge || '⭐') : null
-        };
+        const s = userSettings.find(ss => ss.userId === friendId) || {};
+        return { id: friend.id, username: friend.username, tag: friend.tag, nickColor: s.nickColor, plusBadge: isPremium(friend.id) ? (s.plusBadge || '⭐') : null };
     });
     res.json({ friends: friendList, maxFriends: getMaxFriends(userId), currentCount: friendList.length });
 });
-
 app.post('/requests', (req, res) => {
     if (!req.session.userId) return res.json({ requests: [] });
-    const userId = req.session.userId;
-    const pending = friends.filter(f => f.friend_id === userId && f.status === 'pending');
+    const pending = friends.filter(f => f.friend_id === req.session.userId && f.status === 'pending');
     const requestList = pending.map(f => {
         const requester = users.find(u => u.id === f.user_id);
         return { id: f.id, user_id: requester.id, username: requester.username, tag: requester.tag };
     });
     res.json({ requests: requestList });
 });
-
 app.post('/friend/add', (req, res) => {
-    if (!req.session.userId) return res.json({ success: false, error: 'Не авторизован' });
+    if (!req.session.userId) return res.json({ success: false });
     const { to } = req.body;
     const from = req.session.userId;
-    if (from === to) return res.json({ success: false, error: 'Нельзя добавить себя' });
-    const currentFriendsCount = friends.filter(f => (f.user_id === from || f.friend_id === from) && f.status === 'accepted').length;
-    if (currentFriendsCount >= getMaxFriends(from)) {
-        return res.json({ success: false, error: `Лимит друзей: ${getMaxFriends(from)}. Купите Kinders+ для увеличения до 100.` });
-    }
-    const existing = friends.find(f => (f.user_id === from && f.friend_id === to) || (f.user_id === to && f.friend_id === from));
-    if (existing) return res.json({ success: false, error: 'Запрос уже отправлен или вы уже друзья' });
+    if (from === to) return res.json({ success: false, error: 'Нельзя себя' });
+    const currentCount = friends.filter(f => (f.user_id === from || f.friend_id === from) && f.status === 'accepted').length;
+    if (currentCount >= getMaxFriends(from)) return res.json({ success: false, error: `Лимит друзей: ${getMaxFriends(from)}. Купите Kinders+` });
+    if (friends.find(f => (f.user_id === from && f.friend_id === to) || (f.user_id === to && f.friend_id === from))) return res.json({ success: false, error: 'Запрос уже отправлен' });
     friends.push({ id: nextFriendId++, user_id: from, friend_id: to, status: 'pending' });
     res.json({ success: true });
 });
+app.post('/friend/accept', (req, res) => { const fr = friends.find(f => f.id === req.body.id); if(fr) fr.status = 'accepted'; res.json({ success: true }); });
+app.post('/friend/decline', (req, res) => { friends = friends.filter(f => f.id !== req.body.id); res.json({ success: true }); });
 
-app.post('/friend/accept', (req, res) => {
-    const { id } = req.body;
-    const fr = friends.find(f => f.id === id);
-    if (fr) fr.status = 'accepted';
-    res.json({ success: true });
-});
-
-app.post('/friend/decline', (req, res) => {
-    const { id } = req.body;
-    const idx = friends.findIndex(f => f.id === id);
-    if (idx !== -1) friends.splice(idx, 1);
-    res.json({ success: true });
-});
-
-// ---------- Поиск ----------
+// ---------- ПОИСК ----------
 app.post('/search', (req, res) => {
     const { q } = req.body;
     if (!q) return res.json({ users: [] });
@@ -293,218 +137,150 @@ app.post('/search', (req, res) => {
     res.json({ users: found.map(u => ({ id: u.id, username: u.username, tag: u.tag })) });
 });
 
-// ---------- Личные сообщения ----------
+// ---------- СООБЩЕНИЯ ----------
 app.post('/send-message', (req, res) => {
     if (!req.session.userId) return res.json({ success: false });
-    const { to_user_id, message } = req.body;
-    privateMessages.push({
-        id: nextMsgId++,
-        from_user_id: req.session.userId,
-        to_user_id,
-        message,
-        timestamp: new Date().toISOString()
-    });
+    privateMessages.push({ id: nextMsgId++, from_user_id: req.session.userId, to_user_id: req.body.to_user_id, message: req.body.message, timestamp: new Date().toISOString() });
     res.json({ success: true });
 });
-
 app.post('/messages', (req, res) => {
     if (!req.session.userId) return res.json({ messages: [] });
     const { u2 } = req.body;
     const u1 = req.session.userId;
     const chat = privateMessages.filter(m => (m.from_user_id === u1 && m.to_user_id === u2) || (m.from_user_id === u2 && m.to_user_id === u1));
-    chat.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+    chat.sort((a,b)=>new Date(a.timestamp)-new Date(b.timestamp));
     res.json({ messages: chat });
 });
 
-// ---------- Группы (создание, кик, лимиты) ----------
+// ---------- ГРУППЫ ----------
 app.post('/group/create', (req, res) => {
-    if (!req.session.userId) return res.json({ success: false, error: 'Не авторизован' });
+    if (!req.session.userId) return res.json({ success: false });
     const { name, memberIds } = req.body;
     const owner = req.session.userId;
-    const allMembers = [...new Set([owner, ...(memberIds || [])])];
-    const maxMembers = getMaxGroupMembers(owner);
-    if (allMembers.length > maxMembers) {
-        return res.json({ success: false, error: `Лимит участников: ${maxMembers}. Купите Kinders+ для увеличения до 20.` });
-    }
-    if (allMembers.length < 2) return res.json({ success: false, error: 'Выберите минимум 2 участников' });
-    const newGroup = {
-        id: nextGroupId++,
-        name,
-        owner_id: owner,
-        created_at: new Date().toISOString(),
-        members: allMembers
-    };
-    groups.push(newGroup);
-    // Отправляем приглашения (просто добавляем в группу)
-    res.json({ success: true, groupId: newGroup.id });
+    let members = [...new Set([owner, ...(memberIds || [])])];
+    const maxMem = getMaxGroupMembers(owner);
+    if (members.length > maxMem) return res.json({ success: false, error: `Максимум ${maxMem} участников. Купите Kinders+` });
+    if (members.length < 2) return res.json({ success: false, error: 'Выберите хотя бы одного друга' });
+    groups.push({ id: nextGroupId++, name, owner_id: owner, created_at: new Date().toISOString(), members });
+    res.json({ success: true });
 });
-
 app.post('/groups', (req, res) => {
     if (!req.session.userId) return res.json({ groups: [] });
-    const userId = req.session.userId;
-    const userGroups = groups.filter(g => g.members.includes(userId));
+    const userGroups = groups.filter(g => g.members.includes(req.session.userId));
     res.json({ groups: userGroups.map(g => ({ id: g.id, name: g.name, membersCount: g.members.length, owner_id: g.owner_id })) });
 });
-
 app.post('/group/kick', (req, res) => {
     if (!req.session.userId) return res.json({ success: false });
     const { groupId, targetUserId } = req.body;
     const group = groups.find(g => g.id === groupId);
-    if (!group) return res.json({ success: false, error: 'Группа не найдена' });
-    if (group.owner_id !== req.session.userId) return res.json({ success: false, error: 'Только создатель может кикать' });
-    if (targetUserId === group.owner_id) return res.json({ success: false, error: 'Нельзя кикнуть себя' });
-    const idx = group.members.indexOf(targetUserId);
-    if (idx !== -1) group.members.splice(idx, 1);
+    if (!group || group.owner_id !== req.session.userId) return res.json({ success: false });
+    group.members = group.members.filter(m => m !== targetUserId);
     res.json({ success: true });
 });
-
-app.post('/group/messages', (req, res) => {
-    const { groupId } = req.body;
-    const msgs = groupMessages.filter(m => m.group_id === groupId).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-    res.json({ messages: msgs });
-});
-
 app.post('/group/send-message', (req, res) => {
     if (!req.session.userId) return res.json({ success: false });
     const { group_id, message } = req.body;
     const group = groups.find(g => g.id === group_id);
     if (!group || !group.members.includes(req.session.userId)) return res.json({ success: false });
     const fromUser = users.find(u => u.id === req.session.userId);
-    const newMsg = {
-        id: nextGroupMsgId++,
-        group_id,
-        from_user_id: req.session.userId,
-        fromName: fromUser.username,
-        message,
-        timestamp: new Date().toISOString()
-    };
+    const newMsg = { id: nextGroupMsgId++, group_id, from_user_id: req.session.userId, fromName: fromUser.username, message, timestamp: new Date().toISOString() };
     groupMessages.push(newMsg);
-    group.members.forEach(mid => {
-        io.to(`user_${mid}`).emit('group-message', {
-            group: group_id,
-            from: req.session.userId,
-            fromName: fromUser.username,
-            msg: message,
-            time: newMsg.timestamp
-        });
-    });
+    group.members.forEach(mid => io.to(`user_${mid}`).emit('group-message', { group: group_id, from: req.session.userId, fromName: fromUser.username, msg: message, time: newMsg.timestamp }));
+    res.json({ success: true });
+});
+app.post('/group/messages', (req, res) => {
+    const msgs = groupMessages.filter(m => m.group_id === req.body.groupId).sort((a,b)=>new Date(a.timestamp)-new Date(b.timestamp));
+    res.json({ messages: msgs });
+});
+
+// ---------- ЗАГРУЗКА ФАЙЛОВ (аватарки, GIF, видео) ----------
+app.post('/upload-avatar', upload.single('avatar'), (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Не авторизован' });
+    const user = users.find(u => u.id === req.session.userId);
+    if (!user) return res.status(401).json({ error: 'Пользователь не найден' });
+    if (!req.file) return res.status(400).json({ error: 'Файл не загружен' });
+    user.avatar = `/uploads/${req.file.filename}`;
+    res.json({ success: true, avatarUrl: user.avatar });
+});
+app.post('/upload-gif-avatar', upload.single('gif'), (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Не авторизован' });
+    if (!isPremium(req.session.userId)) return res.status(403).json({ error: 'Только для Kinders+' });
+    if (!req.file) return res.status(400).json({ error: 'Файл не загружен' });
+    let settings = userSettings.find(s => s.userId === req.session.userId);
+    if (!settings) { settings = { userId: req.session.userId }; userSettings.push(settings); }
+    settings.animatedAvatar = `/uploads/${req.file.filename}`;
+    res.json({ success: true });
+});
+app.post('/upload-video-banner', upload.single('video'), (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Не авторизован' });
+    if (!isPremium(req.session.userId)) return res.status(403).json({ error: 'Только для Kinders+' });
+    if (!req.file) return res.status(400).json({ error: 'Файл не загружен' });
+    let settings = userSettings.find(s => s.userId === req.session.userId);
+    if (!settings) { settings = { userId: req.session.userId }; userSettings.push(settings); }
+    settings.videoBanner = `/uploads/${req.file.filename}`;
     res.json({ success: true });
 });
 
-// ---------- Премиум настройки ----------
+// ---------- НАСТРОЙКИ ПРЕМИУМ ----------
 app.post('/save-premium-settings', (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Не авторизован' });
     if (!isPremium(req.session.userId)) return res.status(403).json({ error: 'Доступно только для Kinders+' });
-    const { nickColor, animatedAvatar, videoBanner, plusBadge } = req.body;
-    const userId = req.session.userId;
-    let settings = userSettings.find(s => s.userId === userId);
-    if (!settings) {
-        settings = { userId };
-        userSettings.push(settings);
-    }
+    const { nickColor, plusBadge } = req.body;
+    let settings = userSettings.find(s => s.userId === req.session.userId);
+    if (!settings) { settings = { userId: req.session.userId }; userSettings.push(settings); }
     if (nickColor !== undefined) settings.nickColor = nickColor;
-    if (animatedAvatar !== undefined) settings.animatedAvatar = animatedAvatar;
-    if (videoBanner !== undefined) settings.videoBanner = videoBanner;
     if (plusBadge !== undefined) settings.plusBadge = plusBadge;
     res.json({ success: true });
 });
-
-app.get('/get-premium-settings', (req, res) => {
+app.post('/change-username', (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Не авторизован' });
-    const settings = userSettings.find(s => s.userId === req.session.userId);
-    res.json(settings || {});
+    const { newUsername } = req.body;
+    if (!newUsername || newUsername.length < 3) return res.json({ success: false, error: 'Ник от 3 символов' });
+    const user = users.find(u => u.id === req.session.userId);
+    if (!user) return res.json({ success: false, error: 'Пользователь не найден' });
+    if (users.find(u => u.username === newUsername && u.id !== user.id)) return res.json({ success: false, error: 'Ник занят' });
+    user.username = newUsername;
+    res.json({ success: true });
 });
 
-// ---------- Покупка премиум (простая симуляция для теста) ----------
+// ---------- ПРЕМИУМ (симуляция покупки) ----------
 app.post('/buy-premium', (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Не авторизован' });
-    const { plan } = req.body; // 'week', 'month', 'year', 'forever'
-    let days = 0;
-    let planKey = plan;
-    switch(plan) {
-        case 'week': days = 7; break;
-        case 'month': days = 30; break;
-        case 'year': days = 365; break;
-        case 'forever': days = 36500; break;
-        default: return res.status(400).json({ error: 'Неверный тариф' });
-    }
-    activatePremium(req.session.userId, planKey, days);
-    res.json({ success: true, message: 'Подписка активирована!' });
+    const { plan } = req.body;
+    let days = { week:7, month:30, year:365, forever:36500 }[plan];
+    if (!days) return res.status(400).json({ error: 'Неверный тариф' });
+    const expiresAt = addDays(new Date(), days);
+    subscriptions = subscriptions.filter(s => s.userId !== req.session.userId);
+    subscriptions.push({ userId: req.session.userId, expiresAt, plan });
+    res.json({ success: true });
 });
 
-// ---------- Админка ----------
+// ---------- АДМИНКА ----------
 app.get('/all-users', (req, res) => {
     if (!req.session.userId) return res.json({ users: [] });
     const cur = users.find(u => u.id === req.session.userId);
     if (cur?.username !== 'prisanok') return res.json({ users: [] });
-    const all = users.filter(u => !u.banned && u.username !== 'prisanok').map(u => ({ id: u.id, username: u.username, tag: u.tag }));
-    res.json({ users: all });
+    res.json({ users: users.filter(u => !u.banned && u.username !== 'prisanok').map(u => ({ id: u.id, username: u.username, tag: u.tag })) });
 });
-
 app.post('/ban', (req, res) => {
-    const { userId } = req.body;
-    const user = users.find(u => u.id === userId);
+    const user = users.find(u => u.id === req.body.userId);
     if (user && user.username !== 'prisanok') user.banned = true;
     res.json({ success: true });
 });
 
-// ---------- WebSocket (чат + звонки) ----------
+// ---------- WEBSOCKET + ЗВОНКИ ----------
 io.on('connection', (socket) => {
-    socket.on('register', (id) => {
-        socket.join(`user_${id}`);
-        socket.userId = id;
-    });
-
+    socket.on('register', (id) => { socket.join(`user_${id}`); socket.userId = id; });
     socket.on('private-message', (data) => {
-        const { from, to, msg, fromName } = data;
-        privateMessages.push({
-            id: nextMsgId++,
-            from_user_id: from,
-            to_user_id: to,
-            message: msg,
-            timestamp: new Date().toISOString()
-        });
-        io.to(`user_${to}`).emit('private-message', { from, msg, time: new Date().toISOString(), fromName });
+        privateMessages.push({ id: nextMsgId++, from_user_id: data.from, to_user_id: data.to, message: data.msg, timestamp: new Date().toISOString() });
+        io.to(`user_${data.to}`).emit('private-message', { from: data.from, msg: data.msg, time: new Date().toISOString(), fromName: data.fromName });
     });
-
-    socket.on('group-message', (data) => {
-        const { group, from, fromName, msg } = data;
-        const groupObj = groups.find(g => g.id === group);
-        if (groupObj) {
-            groupMessages.push({
-                id: nextGroupMsgId++,
-                group_id: group,
-                from_user_id: from,
-                fromName,
-                message: msg,
-                timestamp: new Date().toISOString()
-            });
-            groupObj.members.forEach(mid => {
-                io.to(`user_${mid}`).emit('group-message', { group, from, fromName, msg, time: new Date().toISOString() });
-            });
-        }
-    });
-
-    // Сигнализация звонков (WebRTC)
-    socket.on('call-user', (data) => {
-        const { to, offer } = data;
-        io.to(`user_${to}`).emit('call-made', { from: socket.userId, offer });
-    });
-    socket.on('call-answer', (data) => {
-        const { to, answer } = data;
-        io.to(`user_${to}`).emit('call-answered', { from: socket.userId, answer });
-    });
-    socket.on('ice-candidate', (data) => {
-        const { to, candidate } = data;
-        io.to(`user_${to}`).emit('ice-candidate', { from: socket.userId, candidate });
-    });
-    socket.on('end-call', (data) => {
-        const { to } = data;
-        io.to(`user_${to}`).emit('call-ended', { from: socket.userId });
-    });
+    socket.on('group-message', (data) => { });
+    socket.on('call-user', (data) => { io.to(`user_${data.to}`).emit('call-made', { from: socket.userId, offer: data.offer, fromName: data.fromName }); });
+    socket.on('call-answer', (data) => { io.to(`user_${data.to}`).emit('call-answered', { from: socket.userId, answer: data.answer }); });
+    socket.on('ice-candidate', (data) => { io.to(`user_${data.to}`).emit('ice-candidate', { from: socket.userId, candidate: data.candidate }); });
+    socket.on('end-call', (data) => { io.to(`user_${data.to}`).emit('call-ended', { from: socket.userId }); });
 });
 
 const PORT = process.env.PORT || 10000;
-server.listen(PORT, () => {
-    console.log(`Kinders сервер запущен на порту ${PORT}`);
-});
+server.listen(PORT, () => console.log(`Kinders server on ${PORT}`));
