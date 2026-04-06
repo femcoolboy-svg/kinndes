@@ -3,58 +3,106 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kinders - Регистрация</title>
+    <title>Kinders — Регистрация</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="auth-container">
-        <div class="auth-card">
-            <h1>🐻 Kinders</h1>
-            <p>Свободное общение без границ</p>
-            
-            <form id="registerForm">
-                <input type="text" id="username" placeholder="Твой никнейм" required>
-                <input type="password" id="password" placeholder="Пароль" required>
-                <button type="submit">Создать аккаунт</button>
-            </form>
-            
-            <p class="auth-link">Уже с нами? <a href="login.html">Войти</a></p>
-            <div id="errorMsg" class="error-msg"></div>
+    <div class="login-page">
+        <div class="top-bar">
+            <h1 class="site-title">Kinders</h1>
+            <div class="tabs">
+                <a href="login.html" class="tab">Вход</a>
+                <a href="register.html" class="tab active">Регистрация</a>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="questions">
+                <div class="question-block">
+                    <h3>🔥 почему именно мы</h3>
+                    <p>Свободное общение без блокировок и VPN. Твой голос всегда будет услышан.</p>
+                </div>
+                <div class="question-block">
+                    <h3>🔒 безопасный ли сайт</h3>
+                    <p>Да! Все пароли зашифрованы, а твои данные не передаются третьим лицам.</p>
+                </div>
+                <div class="question-block">
+                    <h3>📱 как связаться с создателем</h3>
+                    <p>Telegram: @kinders_support<br>Email: support@kinders.chat</p>
+                </div>
+            </div>
+
+            <div class="login-form-box">
+                <h2>создай аккаунт!</h2>
+                
+                <form id="registerForm">
+                    <div class="input-field">
+                        <label>введите никнейм</label>
+                        <input type="text" id="username" placeholder="Никнейм" required>
+                    </div>
+
+                    <div class="input-field">
+                        <label>введите пароль</label>
+                        <input type="password" id="password" placeholder="Пароль" required>
+                    </div>
+
+                    <div class="input-field">
+                        <label>подтвердите пароль</label>
+                        <input type="password" id="confirmPassword" placeholder="Повтори пароль" required>
+                    </div>
+
+                    <button type="submit" class="login-btn">Зарегистрироваться</button>
+                </form>
+
+                <div id="errorMsg" class="error-msg"></div>
+            </div>
         </div>
     </div>
-    
+
     <script>
         const form = document.getElementById('registerForm');
         const errorMsg = document.getElementById('errorMsg');
-        
+
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value;
-            
+            const confirmPassword = document.getElementById('confirmPassword').value;
+
             if (!username || !password) {
-                errorMsg.textContent = 'Заполни все поля';
+                errorMsg.textContent = 'заполни все поля';
                 return;
             }
-            
+
+            if (password !== confirmPassword) {
+                errorMsg.textContent = 'пароли не совпадают';
+                return;
+            }
+
+            if (password.length < 4) {
+                errorMsg.textContent = 'пароль должен быть минимум 4 символа';
+                return;
+            }
+
             try {
                 const res = await fetch('/register', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, password })
                 });
-                
+
                 const data = await res.json();
-                
+
                 if (res.ok) {
                     localStorage.setItem('token', data.token);
                     localStorage.setItem('username', data.username);
                     window.location.href = 'index.html';
                 } else {
-                    errorMsg.textContent = data.error;
+                    errorMsg.textContent = data.error || 'ошибка регистрации';
                 }
             } catch (err) {
-                errorMsg.textContent = 'Ошибка соединения с сервером';
+                errorMsg.textContent = 'ошибка соединения с сервером';
+                console.error('Fetch error:', err);
             }
         });
     </script>
