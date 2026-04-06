@@ -3,58 +3,122 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kinders - Вход</title>
+    <title>Kinders — Вход</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="auth-container">
-        <div class="auth-card">
-            <h1>🐻 Kinders</h1>
-            <p>С возвращением!</p>
-            
-            <form id="loginForm">
-                <input type="text" id="username" placeholder="Твой никнейм" required>
-                <input type="password" id="password" placeholder="Пароль" required>
-                <button type="submit">Войти</button>
-            </form>
-            
-            <p class="auth-link">Нет аккаунта? <a href="register.html">Создать</a></p>
-            <div id="errorMsg" class="error-msg"></div>
+    <div class="login-page">
+        <div class="top-bar">
+            <h1 class="site-title">Kinders</h1>
+            <div class="tabs">
+                <a href="login.html" class="tab active">Вход</a>
+                <a href="register.html" class="tab">Регистрация</a>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="questions">
+                <div class="question-block">
+                    <h3>🔥 почему именно мы</h3>
+                    <p>Свободное общение без блокировок и VPN. Твой голос всегда будет услышан.</p>
+                </div>
+                <div class="question-block">
+                    <h3>🔒 безопасный ли сайт</h3>
+                    <p>Да! Все пароли зашифрованы, а твои данные не передаются третьим лицам.</p>
+                </div>
+                <div class="question-block">
+                    <h3>📱 как связаться с создателем</h3>
+                    <p>Telegram: @kinders_support<br>Email: support@kinders.chat</p>
+                </div>
+            </div>
+
+            <div class="login-form-box">
+                <h2>добро пожаловать!</h2>
+                
+                <form id="loginForm">
+                    <div class="input-field">
+                        <label>введите никнейм</label>
+                        <input type="text" id="username" placeholder="Никнейм" required>
+                    </div>
+
+                    <div class="input-field">
+                        <label>введите пароль</label>
+                        <input type="password" id="password" placeholder="Пароль" required>
+                    </div>
+
+                    <div class="form-footer">
+                        <a href="#" id="forgotPassword" class="forgot-link">забыли пароль?</a>
+                    </div>
+
+                    <button type="submit" class="login-btn">Войти</button>
+                </form>
+
+                <div id="errorMsg" class="error-msg"></div>
+            </div>
         </div>
     </div>
-    
+
+    <div id="forgotModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3>🔐 забыли пароль?</h3>
+            <p>Напиши создателю в Telegram: <strong>@kinders_support</strong></p>
+            <p>Или на почту: <strong>support@kinders.chat</strong></p>
+            <button class="modal-btn" id="closeModal">понятно</button>
+        </div>
+    </div>
+
     <script>
         const form = document.getElementById('loginForm');
         const errorMsg = document.getElementById('errorMsg');
+        const forgotLink = document.getElementById('forgotPassword');
+        const modal = document.getElementById('forgotModal');
+        const closeBtn = document.querySelector('.close');
+        const closeModalBtn = document.getElementById('closeModal');
+
+        if (forgotLink) {
+            forgotLink.onclick = (e) => {
+                e.preventDefault();
+                if (modal) modal.style.display = 'flex';
+            };
+        }
+
+        if (closeBtn) closeBtn.onclick = () => { if (modal) modal.style.display = 'none'; };
+        if (closeModalBtn) closeModalBtn.onclick = () => { if (modal) modal.style.display = 'none'; };
         
+        window.onclick = (e) => {
+            if (e.target === modal && modal) modal.style.display = 'none';
+        };
+
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value;
-            
+
             if (!username || !password) {
-                errorMsg.textContent = 'Заполни все поля';
+                errorMsg.textContent = 'заполни все поля';
                 return;
             }
-            
+
             try {
                 const res = await fetch('/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, password })
                 });
-                
+
                 const data = await res.json();
-                
+
                 if (res.ok) {
                     localStorage.setItem('token', data.token);
                     localStorage.setItem('username', data.username);
                     window.location.href = 'index.html';
                 } else {
-                    errorMsg.textContent = data.error;
+                    errorMsg.textContent = data.error || 'ошибка входа';
                 }
             } catch (err) {
-                errorMsg.textContent = 'Ошибка соединения с сервером';
+                errorMsg.textContent = 'ошибка соединения с сервером';
+                console.error('Fetch error:', err);
             }
         });
     </script>
