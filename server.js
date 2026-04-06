@@ -4,7 +4,7 @@ const http = require('http');
 const socketIo = require('socket.io');
 const bcrypt = require('bcrypt');
 const cors = require('cors');
-const crypto = require('crypto');
+const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
@@ -14,7 +14,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('.'));
 app.use(session({
-    secret: 'kinders_super_secret_key_2024',
+    secret: 'yyPOZRvyMg1vtOYr4wgXhxYN',
     resave: false,
     saveUninitialized: false,
     cookie: { maxAge: 7 * 24 * 60 * 60 * 1000 }
@@ -27,6 +27,7 @@ let groups = [];
 let groupInvites = [];
 let privateMessages = [];
 let groupMessages = [];
+let userSettings = []; // { userId, nickColor, animatedAvatar, videoBanner, plusBadge }
 
 let nextUserId = 1;
 let nextFriendId = 1;
@@ -34,18 +35,6 @@ let nextGroupId = 1;
 let nextInviteId = 1;
 let nextMsgId = 1;
 let nextGroupMsgId = 1;
-
-// Конфиг ЮMoney
-const YMONEY_WALLET = '4100118589497198';
-// Секретное слово для проверки уведомлений (придумай сложное, например "kinders_super_secret_2026")
-const YMONEY_SECRET = 'kinders_super_secret_2026';
-
-// Цены подписок (в рублях)
-const PLUS_PRICES = {
-    'week': 79,
-    'month': 199,
-    'year': 690
-};
 
 // Разрешённый IP для админа
 const ADMIN_ALLOWED_IP = '62.140.249.69';
@@ -58,25 +47,6 @@ function banAllAccountsByIp(ip) {
 
 function getClientIp(req) {
     return req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress;
-}
-
-// Вспомогательная функция для генерации тега
-function generateTag() {
-    return Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-}
-
-// Выдача подписки пользователю на определённое количество дней
-function grantPlus(userId, days) {
-    const user = users.find(u => u.id === userId);
-    if (!user) return false;
-    const now = Date.now();
-    let until = user.plus_until ? new Date(user.plus_until).getTime() : now;
-    if (until < now) until = now;
-    const newUntil = new Date(until + days * 24 * 60 * 60 * 1000);
-    user.plus_until = newUntil.toISOString();
-    user.is_plus = true;
-    console.log(`✅ Пользователь ${user.username} получил Kinders+ на ${days} дней до ${newUntil.toISOString()}`);
-    return true;
 }
 
 // Создаём админа prisanok
@@ -92,15 +62,46 @@ function grantPlus(userId, days) {
         banner: null,
         bio: 'Создатель Kinders',
         status: 'online',
-        is_plus: true,
-        plus_until: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+        plus: true,
         banned: false,
         registration_ip: ADMIN_ALLOWED_IP
     });
-    console.log('✅ Админ prisanok создан с бессрочной подпиской');
+    console.log('✅ Админ prisanok создан');
 })();
 
-// ---------- РЕГИСТРАЦИЯ ----------
+function generateTag() {
+    return Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+}
+
+// ========== ПОДКЛЮЧАЕМ ПРЕМИУМ МОДУЛЬ ==========
+const premiumModule = require('./premium.js');
+premiumModule(app); // добавляет эндпоинты /create-payment, /yoomoney-webhook, /check-premium
+
+// ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ДЛЯ ПРЕМИУМ ==========
+function isPremium(userId) {
+    return premiumModule.isPremiumActive(userId);
+}
+
+function getPremiumPlan(userId) {
+    const info = premiumModule.getPremiumInfo(userId);
+    return info ? info.plan : null;
+}
+
+function getMaxFriends(userId) {
+    if (isPremium(userId)) return 9999; // безлимит
+    return 100;
+}
+
+function getMaxGroupMembers(userId, groupOwnerId = null) {
+    const plan = getPremiumPlan(userId);
+    if (plan === 'forever') return 200;
+    if (plan === '12m') return 100;
+    if (plan === '1m') return 50;
+    if (plan === '1w') return 30;
+    return 15; // обычный пользователь
+}
+
+// ========== РЕГИСТРАЦИЯ ==========
 app.post('/register', async (req, res) => {
     const { username, password } = req.body;
     const clientIp = getClientIp(req);
@@ -118,17 +119,16 @@ app.post('/register', async (req, res) => {
         banner: null,
         bio: '',
         status: 'online',
-        is_plus: false,
-        plus_until: null,
+        plus: false,
         banned: false,
         registration_ip: clientIp
     };
     users.push(newUser);
     req.session.userId = newUser.id;
-    res.json({ success: true, user: { id: newUser.id, username: newUser.username, tag: newUser.tag, is_plus: false, plus_until: null } });
+    res.json({ success: true, user: { id: newUser.id, username: newUser.username, tag: newUser.tag } });
 });
 
-// ---------- ВХОД ----------
+// ========== ВХОД С ЗАЩИТОЙ АДМИНА ==========
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
     const clientIp = getClientIp(req);
@@ -146,32 +146,43 @@ app.post('/login', async (req, res) => {
         const valid = await bcrypt.compare(password, user.passwordHash);
         if (!valid) return res.json({ success: false, error: 'Неверные данные' });
         req.session.userId = user.id;
-        // Проверяем, не истекла ли подписка
-        if (user.plus_until && new Date(user.plus_until) < new Date()) {
-            user.is_plus = false;
-        }
-        return res.json({ success: true, user: { id: user.id, username: user.username, tag: user.tag, is_plus: user.is_plus, plus_until: user.plus_until } });
+        return res.json({ success: true, user: { id: user.id, username: user.username, tag: user.tag } });
     }
 
     if (!user) return res.json({ success: false, error: 'Неверные данные' });
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) return res.json({ success: false, error: 'Неверные данные' });
     req.session.userId = user.id;
-    if (user.plus_until && new Date(user.plus_until) < new Date()) {
-        user.is_plus = false;
-    }
-    res.json({ success: true, user: { id: user.id, username: user.username, tag: user.tag, is_plus: user.is_plus, plus_until: user.plus_until } });
+    res.json({ success: true, user: { id: user.id, username: user.username, tag: user.tag } });
 });
 
-// ---------- СЕССИЯ ----------
+// ========== СЕССИЯ ==========
 app.get('/session', (req, res) => {
     if (!req.session.userId) return res.json({ success: false });
     const user = users.find(u => u.id === req.session.userId && !u.banned);
     if (!user) return res.json({ success: false });
-    if (user.plus_until && new Date(user.plus_until) < new Date()) {
-        user.is_plus = false;
-    }
-    res.json({ success: true, user: { id: user.id, username: user.username, tag: user.tag, created_at: user.created_at, avatar: user.avatar, banner: user.banner, bio: user.bio, is_plus: user.is_plus, plus_until: user.plus_until } });
+    const settings = userSettings.find(s => s.userId === user.id) || {};
+    res.json({
+        success: true,
+        user: {
+            id: user.id,
+            username: user.username,
+            tag: user.tag,
+            created_at: user.created_at,
+            avatar: user.avatar,
+            banner: user.banner,
+            bio: user.bio,
+            plus: user.plus
+        },
+        isPremium: isPremium(user.id),
+        premiumPlan: getPremiumPlan(user.id),
+        settings: {
+            nickColor: settings.nickColor || null,
+            animatedAvatar: settings.animatedAvatar || null,
+            videoBanner: settings.videoBanner || null,
+            plusBadge: settings.plusBadge || '⭐'
+        }
+    });
 });
 
 app.post('/logout', (req, res) => {
@@ -179,7 +190,7 @@ app.post('/logout', (req, res) => {
     res.json({ success: true });
 });
 
-// ---------- ДРУЗЬЯ ----------
+// ========== ДРУЗЬЯ С УЧЁТОМ ЛИМИТОВ ==========
 app.post('/friends', (req, res) => {
     if (!req.session.userId) return res.json({ friends: [] });
     const userId = req.session.userId;
@@ -187,9 +198,17 @@ app.post('/friends', (req, res) => {
     const friendList = userFriends.map(f => {
         const friendId = f.user_id === userId ? f.friend_id : f.user_id;
         const friend = users.find(u => u.id === friendId);
-        return { id: friend.id, username: friend.username, tag: friend.tag };
+        const friendSettings = userSettings.find(s => s.userId === friendId) || {};
+        return {
+            id: friend.id,
+            username: friend.username,
+            tag: friend.tag,
+            avatar: friend.avatar,
+            nickColor: friendSettings.nickColor,
+            plusBadge: isPremium(friend.id) ? (friendSettings.plusBadge || '⭐') : null
+        };
     });
-    res.json({ friends: friendList });
+    res.json({ friends: friendList, maxFriends: getMaxFriends(userId), currentCount: friendList.length });
 });
 
 app.post('/requests', (req, res) => {
@@ -204,12 +223,16 @@ app.post('/requests', (req, res) => {
 });
 
 app.post('/friend/add', (req, res) => {
-    if (!req.session.userId) return res.json({ success: false });
+    if (!req.session.userId) return res.json({ success: false, error: 'Не авторизован' });
     const { to } = req.body;
     const from = req.session.userId;
     if (from === to) return res.json({ success: false, error: 'Нельзя добавить себя' });
+    const currentFriendsCount = friends.filter(f => (f.user_id === from || f.friend_id === from) && f.status === 'accepted').length;
+    if (currentFriendsCount >= getMaxFriends(from)) {
+        return res.json({ success: false, error: 'Достигнут лимит друзей. Купите Kinders+ для безлимита.' });
+    }
     const existing = friends.find(f => (f.user_id === from && f.friend_id === to) || (f.user_id === to && f.friend_id === from));
-    if (existing) return res.json({ success: false, error: 'Уже есть запрос' });
+    if (existing) return res.json({ success: false, error: 'Запрос уже отправлен или вы уже друзья' });
     friends.push({ id: nextFriendId++, user_id: from, friend_id: to, status: 'pending' });
     res.json({ success: true });
 });
@@ -228,7 +251,7 @@ app.post('/friend/decline', (req, res) => {
     res.json({ success: true });
 });
 
-// ---------- ПОИСК ----------
+// ========== ПОИСК ==========
 app.post('/search', (req, res) => {
     const { q } = req.body;
     if (!q) return res.json({ users: [] });
@@ -240,7 +263,7 @@ app.post('/search', (req, res) => {
     res.json({ users: found.map(u => ({ id: u.id, username: u.username, tag: u.tag })) });
 });
 
-// ---------- ЛИЧНЫЕ СООБЩЕНИЯ ----------
+// ========== ЛИЧНЫЕ СООБЩЕНИЯ ==========
 app.post('/send-message', (req, res) => {
     if (!req.session.userId) return res.json({ success: false });
     const { to_user_id, message } = req.body;
@@ -263,12 +286,16 @@ app.post('/messages', (req, res) => {
     res.json({ messages: chat });
 });
 
-// ---------- ГРУППЫ ----------
+// ========== ГРУППЫ С УЧЁТОМ ПРЕМИУМ ЛИМИТОВ ==========
 app.post('/group/create', (req, res) => {
-    if (!req.session.userId) return res.json({ success: false });
+    if (!req.session.userId) return res.json({ success: false, error: 'Не авторизован' });
     const { name, members } = req.body;
     const owner = req.session.userId;
     const allMembers = [...new Set([owner, ...(members || [])])];
+    const maxMembers = getMaxGroupMembers(owner);
+    if (allMembers.length > maxMembers) {
+        return res.json({ success: false, error: `Лимит участников группы для вашего тарифа: ${maxMembers}. Приобретите Kinders+ для увеличения лимита.` });
+    }
     if (allMembers.length < 2) return res.json({ success: false, error: 'Нужно минимум 2 участника' });
     const newGroup = {
         id: nextGroupId++,
@@ -290,7 +317,7 @@ app.post('/groups', (req, res) => {
     if (!req.session.userId) return res.json({ groups: [] });
     const userId = req.session.userId;
     const userGroups = groups.filter(g => g.members.includes(userId));
-    res.json({ groups: userGroups.map(g => ({ id: g.id, name: g.name })) });
+    res.json({ groups: userGroups.map(g => ({ id: g.id, name: g.name, membersCount: g.members.length })) });
 });
 
 app.post('/group/messages', (req, res) => {
@@ -326,17 +353,36 @@ app.post('/group/send-message', (req, res) => {
     res.json({ success: true });
 });
 
-// ---------- АДМИНКА (список пользователей + бан/разбан) ----------
+// ========== ПРЕМИУМ НАСТРОЙКИ ПОЛЬЗОВАТЕЛЯ ==========
+app.post('/save-premium-settings', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Не авторизован' });
+    if (!isPremium(req.session.userId)) return res.status(403).json({ error: 'Доступно только для Kinders+' });
+    const { nickColor, animatedAvatar, videoBanner, plusBadge } = req.body;
+    const userId = req.session.userId;
+    let settings = userSettings.find(s => s.userId === userId);
+    if (!settings) {
+        settings = { userId };
+        userSettings.push(settings);
+    }
+    if (nickColor !== undefined) settings.nickColor = nickColor;
+    if (animatedAvatar !== undefined) settings.animatedAvatar = animatedAvatar;
+    if (videoBanner !== undefined) settings.videoBanner = videoBanner;
+    if (plusBadge !== undefined) settings.plusBadge = plusBadge;
+    res.json({ success: true });
+});
+
+app.get('/get-premium-settings', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Не авторизован' });
+    const settings = userSettings.find(s => s.userId === req.session.userId);
+    res.json(settings || {});
+});
+
+// ========== АДМИНКА ==========
 app.get('/all-users', (req, res) => {
     if (!req.session.userId) return res.json({ users: [] });
     const cur = users.find(u => u.id === req.session.userId);
     if (cur?.username !== 'prisanok') return res.json({ users: [] });
-    const all = users.filter(u => !u.banned && u.username !== 'prisanok').map(u => ({
-        id: u.id,
-        username: u.username,
-        tag: u.tag,
-        banned: u.banned
-    }));
+    const all = users.filter(u => !u.banned && u.username !== 'prisanok').map(u => ({ id: u.id, username: u.username, tag: u.tag }));
     res.json({ users: all });
 });
 
@@ -345,7 +391,6 @@ app.post('/ban', (req, res) => {
     const user = users.find(u => u.id === userId);
     if (user && user.username !== 'prisanok') {
         user.banned = true;
-        console.log(`🔨 Пользователь ${user.username} забанен`);
     }
     res.json({ success: true });
 });
@@ -355,93 +400,11 @@ app.post('/unban', (req, res) => {
     const user = users.find(u => u.id === userId);
     if (user && user.username !== 'prisanok') {
         user.banned = false;
-        console.log(`✅ Пользователь ${user.username} разбанен`);
     }
     res.json({ success: true });
 });
 
-// ---------- СМЕНА НИКА ----------
-app.post('/change-username', async (req, res) => {
-    if (!req.session.userId) return res.json({ success: false, error: 'Не авторизован' });
-    const { newUsername } = req.body;
-    if (!newUsername || newUsername.length < 3) return res.json({ success: false, error: 'Ник слишком короткий' });
-    const user = users.find(u => u.id === req.session.userId);
-    if (!user) return res.json({ success: false, error: 'Пользователь не найден' });
-    if (users.find(u => u.username === newUsername && u.id !== user.id)) {
-        return res.json({ success: false, error: 'Никнейм уже занят' });
-    }
-    user.username = newUsername;
-    res.json({ success: true });
-});
-
-// ---------- KINDERS+ ПЛАТЕЖИ ----------
-// Создание платежа: возвращаем форму оплаты (старый метод ЮMoney)
-app.post('/create-payment', (req, res) => {
-    if (!req.session.userId) return res.json({ success: false, error: 'Не авторизован' });
-    const { plan } = req.body; // 'week', 'month', 'year'
-    const amount = PLUS_PRICES[plan];
-    if (!amount) return res.json({ success: false, error: 'Неверный тариф' });
-
-    const userId = req.session.userId;
-    const user = users.find(u => u.id === userId);
-    if (!user) return res.json({ success: false });
-
-    // Формируем параметры для формы ЮMoney (стандартный метод)
-    // Документация: https://yoomoney.ru/docs/payment-buttons/using-api/button
-    const label = `kinders_plus_${userId}_${Date.now()}`;
-    const formUrl = 'https://yoomoney.ru/quickpay/confirm.xml';
-    const formHtml = `
-        <form id="yoomoneyForm" action="${formUrl}" method="POST">
-            <input type="hidden" name="receiver" value="${YMONEY_WALLET}">
-            <input type="hidden" name="formcomment" value="Kinders+ подписка">
-            <input type="hidden" name="short-dest" value="Kinders+">
-            <input type="hidden" name="label" value="${label}">
-            <input type="hidden" name="quickpay-form" value="small">
-            <input type="hidden" name="targets" value="Подписка Kinders+ на ${plan}">
-            <input type="hidden" name="sum" value="${amount}" data-type="number">
-            <input type="hidden" name="comment" value="">
-            <input type="hidden" name="need-fio" value="false">
-            <input type="hidden" name="need-email" value="false">
-            <input type="hidden" name="need-phone" value="false">
-            <input type="hidden" name="need-address" value="false">
-            <input type="submit" value="Перейти к оплате">
-        </form>
-        <script>document.getElementById('yoomoneyForm').submit();</script>
-    `;
-    res.send(formHtml);
-});
-
-// Webhook для уведомлений от ЮMoney (HTTP-уведомления)
-// В настройках кошелька нужно указать URL: https://твой-сайт.onrender.com/payment-notification
-app.post('/payment-notification', (req, res) => {
-    // Проверка подписи (если используется секретное слово)
-    // ЮMoney отправляет POST с параметрами: notification_type, operation_id, amount, currency, datetime, sender, codepro, label, sha1_hash
-    const { label, amount, sha1_hash, notification_type, operation_id, sender, currency } = req.body;
-    if (!label) return res.status(400).send('No label');
-    
-    // В реальном проекте нужно проверять sha1_hash: sha1(параметры + секрет)
-    // Но для простоты пока пропустим, рекомендую потом добавить проверку
-    
-    // Из label достаём userId
-    const match = label.match(/kinders_plus_(\d+)_/);
-    if (!match) return res.status(400).send('Invalid label');
-    const userId = parseInt(match[1]);
-    
-    // Определяем количество дней по сумме (можно точнее по label, но проще по сумме)
-    let days = 0;
-    if (amount == 79) days = 7;
-    else if (amount == 199) days = 30;
-    else if (amount == 690) days = 365;
-    else days = 0;
-    
-    if (days > 0) {
-        const granted = grantPlus(userId, days);
-        if (granted) console.log(`Подписка выдана пользователю ${userId} на ${days} дней, сумма ${amount} руб.`);
-    }
-    res.status(200).send('OK');
-});
-
-// ---------- WEBSOCKET ----------
+// ========== WEBSOCKET ==========
 io.on('connection', (socket) => {
     socket.on('register', (id) => {
         socket.join(`user_${id}`);
@@ -476,5 +439,8 @@ io.on('connection', (socket) => {
     });
 });
 
+// ========== ЗАПУСК ==========
 const PORT = process.env.PORT || 10000;
-server.listen(PORT, () => console.log(`🚀 Kinders сервер запущен на порту ${PORT}`));
+server.listen(PORT, () => {
+    console.log(`🚀 Kinders сервер запущен на порту ${PORT}`);
+});
