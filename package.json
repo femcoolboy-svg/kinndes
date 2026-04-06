@@ -1,7 +1,7 @@
 {
   "name": "kinders",
   "version": "1.0.0",
-  "description": "Kinders chat",
+  "description": "Kinders Chat with Premium",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
