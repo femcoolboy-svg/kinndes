@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Kinders+ — премиум подписка</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 100%);
+            min-height: 100vh;
+            color: #e8edf5;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 1300px;
+            margin: 0 auto;
+        }
+
+        /* Шапка */
+        .header {
+            text-align: center;
+            margin-bottom: 50px;
+            animation: fadeInDown 0.6s ease;
+        }
+        .header h1 {
+            font-size: 48px;
+            background: linear-gradient(135deg, #FFD700, #FFA500);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            margin-bottom: 10px;
+        }
+        .header p {
+            color: #9aa4bf;
+            font-size: 18px;
+        }
+
+        /* Карточки тарифов */
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 25px;
+            margin-bottom: 60px;
+        }
+
+        .card {
+            background: rgba(30, 34, 41, 0.8);
+            backdrop-filter: blur(10px);
+            border-radius: 32px;
+            padding: 30px 20px;
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            transition: transform 0.3s, box-shadow 0.3s;
+            text-align: center;
+            animation: fadeInUp 0.6s ease;
+            animation-fill-mode: both;
+        }
+        .card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+            border-color: #FFD700;
+        }
+        .card:nth-child(1) { animation-delay: 0.1s; }
+        .card:nth-child(2) { animation-delay: 0.2s; }
+        .card:nth-child(3) { animation-delay: 0.3s; }
+        .card:nth-child(4) { animation-delay: 0.4s; }
+
+        .card.popular {
+            background: linear-gradient(135deg, rgba(255,215,0,0.15), rgba(255,165,0,0.15));
+            border: 2px solid #FFD700;
+            transform: scale(1.02);
+        }
+        .card.popular:hover {
+            transform: scale(1.02) translateY(-8px);
+        }
+
+        .badge {
+            display: inline-block;
+            background: #FFD700;
+            color: #1a1a2e;
+            font-size: 12px;
+            font-weight: bold;
+            padding: 4px 12px;
+            border-radius: 50px;
+            margin-bottom: 15px;
+        }
+
+        .plan-name {
+            font-size: 28px;
+            font-weight: 800;
+            margin-bottom: 10px;
+        }
+        .price {
+            font-size: 36px;
+            font-weight: 800;
+            margin: 20px 0;
+            color: #FFD700;
+        }
+        .price span {
+            font-size: 16px;
+            font-weight: normal;
+            color: #9aa4bf;
+        }
+        .saving {
+            font-size: 13px;
+            color: #6bdd8c;
+            margin-top: -15px;
+            margin-bottom: 20px;
+        }
+        .features {
+            list-style: none;
+            margin: 25px 0;
+            text-align: left;
+            padding: 0 15px;
+        }
+        .features li {
+            padding: 8px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .features li::before {
+            content: "✓";
+            color: #6bdd8c;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        .btn-buy {
+            background: linear-gradient(135deg, #FFD700, #FFA500);
+            border: none;
+            width: 100%;
+            padding: 14px;
+            border-radius: 50px;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            transition: 0.2s;
+            color: #1a1a2e;
+            margin-top: 10px;
+        }
+        .btn-buy:hover {
+            transform: scale(1.02);
+            filter: brightness(1.05);
+        }
+
+        /* Блок "Все преимущества Kinders+" */
+        .all-features {
+            background: rgba(30, 34, 41, 0.6);
+            border-radius: 40px;
+            padding: 40px;
+            margin: 40px 0;
+            text-align: center;
+            border: 1px solid rgba(255,215,0,0.2);
+            animation: fadeInUp 0.6s ease 0.5s both;
+        }
+        .all-features h2 {
+            font-size: 32px;
+            margin-bottom: 30px;
+            color: #FFD700;
+        }
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+            text-align: left;
+        }
+        .feature-item {
+            background: rgba(0,0,0,0.3);
+            padding: 20px;
+            border-radius: 24px;
+            transition: 0.2s;
+        }
+        .feature-item:hover {
+            background: rgba(255,215,0,0.1);
+            transform: translateY(-4px);
+        }
+        .feature-icon {
+            font-size: 32px;
+            margin-bottom: 12px;
+        }
+        .feature-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #FFD700;
+        }
+        .feature-desc {
+            font-size: 14px;
+            color: #c0c0d0;
+            line-height: 1.4;
+        }
+
+        /* Кнопка назад */
+        .back-link {
+            display: inline-block;
+            margin-top: 30px;
+            color: #FFD700;
+            text-decoration: none;
+            font-weight: 500;
+            transition: 0.2s;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @media (max-width: 700px) {
+            body { padding: 20px; }
+            .header h1 { font-size: 36px; }
+            .all-features { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>✨ Kinders+ ✨</h1>
+        <p>Больше возможностей для свободного общения</p>
+    </div>
+
+    <div class="pricing-grid">
+        <!-- Неделя -->
+        <div class="card">
+            <div class="plan-name">🔥 Неделя</div>
+            <div class="price">49 ₽<span>/нед</span></div>
+            <div class="saving">Попробуй премиум</div>
+            <ul class="features">
+                <li>Кастомный цвет ника</li>
+                <li>Эксклюзивный значок 🎨</li>
+                <li>Группы до 30 человек</li>
+                <li>Безлимит друзей</li>
+                <li>Анимированные аватарки (GIF)</li>
+                <li>Видео-баннер профиля</li>
+                <li>Приоритетная поддержка</li>
+            </ul>
+            <button class="btn-buy" data-plan="week">Купить за 49 ₽</button>
+        </div>
+
+        <!-- Месяц (популярный) -->
+        <div class="card popular">
+            <div class="badge">🔥 Популярный</div>
+            <div class="plan-name">⭐ Месяц</div>
+            <div class="price">149 ₽<span>/мес</span></div>
+            <div class="saving">Экономия ~30% по сравнению с неделей</div>
+            <ul class="features">
+                <li>Кастомный цвет ника</li>
+                <li>Эксклюзивный значок 🎨</li>
+                <li>Группы до 50 человек</li>
+                <li>Безлимит друзей</li>
+                <li>Анимированные аватарки (GIF)</li>
+                <li>Видео-баннер профиля</li>
+                <li>Приоритетная поддержка</li>
+            </ul>
+            <button class="btn-buy" data-plan="month">Купить за 149 ₽</button>
+        </div>
+
+        <!-- Год -->
+        <div class="card">
+            <div class="plan-name">💎 Год</div>
+            <div class="price">1 290 ₽<span>/год</span></div>
+            <div class="saving">Экономия 498 ₽ (2 месяца бесплатно)</div>
+            <ul class="features">
+                <li>Все преимущества Plus</li>
+                <li>Эксклюзивный значок 🎨</li>
+                <li>Группы до 100 человек</li>
+                <li>Безлимит друзей</li>
+                <li>Анимированные аватарки (GIF)</li>
+                <li>Видео-баннер профиля</li>
+                <li>Приоритетная поддержка</li>
+            </ul>
+            <button class="btn-buy" data-plan="year">Купить за 1 290 ₽</button>
+        </div>
+
+        <!-- Навсегда -->
+        <div class="card">
+            <div class="plan-name">👑 Навсегда</div>
+            <div class="price">4 990 ₽<span>/ lifetime</span></div>
+            <div class="saving">Пожизненная подписка</div>
+            <ul class="features">
+                <li>Все преимущества Plus</li>
+                <li>Эксклюзивный значок 👑</li>
+                <li>Группы до 200 человек</li>
+                <li>Безлимит друзей</li>
+                <li>Анимированные аватарки (GIF)</li>
+                <li>Видео-баннер профиля</li>
+                <li>Доступ к бета-функциям</li>
+                <li>Имя в Зале Славы</li>
+            </ul>
+            <button class="btn-buy" data-plan="forever">Купить навсегда</button>
+        </div>
+    </div>
+
+    <!-- БЛОК ВСЕХ ПЛЮСОВ ПОДПИСКИ (добавлен внизу) -->
+    <div class="all-features">
+        <h2>🌟 Все преимущества Kinders+ 🌟</h2>
+        <div class="features-grid">
+            <div class="feature-item">
+                <div class="feature-icon">🎨</div>
+                <div class="feature-title">Кастомный цвет ника</div>
+                <div class="feature-desc">Выбери любой цвет для своего имени в чате. Выделяйся среди друзей!</div>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">✨</div>
+                <div class="feature-title">Эксклюзивный значок</div>
+                <div class="feature-desc">Уникальный значок рядом с ником, который виден всем.</div>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">👥</div>
+                <div class="feature-title">Большие группы</div>
+                <div class="feature-desc">Создавай группы до 200 участников (в зависимости от тарифа).</div>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">♾️</div>
+                <div class="feature-title">Безлимит друзей</div>
+                <div class="feature-desc">Добавляй сколько угодно друзей — ограничений нет.</div>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">🖼️</div>
+                <div class="feature-title">Анимированные аватарки (GIF)</div>
+                <div class="feature-desc">Загружай GIF-аватарку, она будет крутиться прямо в чате и профиле.</div>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">🎥</div>
+                <div class="feature-title">Видео-баннер профиля</div>
+                <div class="feature-desc">Поставь короткое видео на фон своего профиля.</div>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">⚡</div>
+                <div class="feature-title">Приоритетная поддержка</div>
+                <div class="feature-desc">Твои вопросы решаются в первую очередь.</div>
+            </div>
+            <div class="feature-item">
+                <div class="feature-icon">🔮</div>
+                <div class="feature-title">Доступ к бета-функциям</div>
+                <div class="feature-desc">Первым пробуй новые возможности Kinders.</div>
+            </div>
+        </div>
+    </div>
+
+    <div style="text-align: center;">
+        <a href="index.html" class="back-link">← Вернуться в чат</a>
+    </div>
+</div>
+
+<script>
+    // Преобразование планов в ключи для сервера
+    const planMap = {
+        week: { key: '1w', days: 7, price: 49 },
+        month: { key: '1m', days: 30, price: 149 },
+        year: { key: '12m', days: 365, price: 1290 },
+        forever: { key: 'forever', days: 36500, price: 4990 }
+    };
+
+    async function buyPlan(planKey) {
+        const plan = planMap[planKey];
+        if (!plan) return;
+
+        try {
+            const res = await fetch('/create-payment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ plan: plan.key, amount: plan.price })
+            });
+            const data = await res.json();
+            if (data.paymentUrl) {
+                window.open(data.paymentUrl, '_blank');
+                alert('Перейдите по ссылке для оплаты. После подтверждения платежа подписка активируется автоматически в течение минуты.');
+                setTimeout(() => {
+                    if (confirm('Проверить статус подписки? (нажми ОК)')) {
+                        window.location.href = 'index.html';
+                    }
+                }, 5000);
+            } else {
+                alert('Ошибка: ' + (data.error || 'попробуйте позже'));
+            }
+        } catch (err) {
+            alert('Ошибка соединения с сервером');
+        }
+    }
+
+    // Навешиваем обработчики на кнопки
+    document.querySelectorAll('.btn-buy').forEach(btn => {
+        const plan = btn.getAttribute('data-plan');
+        btn.addEventListener('click', () => buyPlan(plan));
+    });
+</script>
+</body>
+</html>
