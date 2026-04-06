@@ -5,289 +5,114 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kinders — Регистрация</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        * { margin:0; padding:0; box-sizing:border-box; }
         body {
-            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 100%);
+            font-family: system-ui, sans-serif;
+            background: linear-gradient(135deg, #0f0f1a, #1a1a2e);
             min-height: 100vh;
-        }
-
-        /* Верхняя панель */
-        .top-bar {
             display: flex;
-            justify-content: space-between;
             align-items: center;
-            padding: 20px 40px;
-            background: rgba(0, 0, 0, 0.4);
-            border-bottom: 1px solid rgba(245, 166, 35, 0.3);
-            flex-wrap: wrap;
+            justify-content: center;
         }
-
-        .site-title {
-            font-size: 28px;
-            color: #f5a623;
-        }
-
-        .tabs {
-            display: flex;
-            gap: 12px;
-        }
-
-        .tab {
-            color: #a0a0b0;
-            text-decoration: none;
-            padding: 8px 20px;
-            border-radius: 30px;
-            transition: 0.3s;
-        }
-
-        .tab.active {
-            color: #f5a623;
-            background: rgba(245, 166, 35, 0.15);
-        }
-
-        /* Основной блок */
-        .main-content {
-            display: flex;
-            max-width: 1100px;
-            margin: 0 auto;
-            padding: 50px 30px;
-            gap: 50px;
-            flex-wrap: wrap;
-        }
-
-        /* Левая колонка с вопросами */
-        .questions {
-            flex: 1;
-            min-width: 250px;
-        }
-
-        .question-block {
-            background: rgba(255, 255, 255, 0.05);
-            padding: 20px;
-            border-radius: 20px;
-            margin-bottom: 20px;
-        }
-
-        .question-block h3 {
-            color: #f5a623;
-            margin-bottom: 10px;
-            font-size: 18px;
-        }
-
-        .question-block p {
-            color: #c0c0d0;
-            font-size: 14px;
-            line-height: 1.4;
-        }
-
-        /* Правая колонка с формой */
-        .register-form-box {
-            flex: 1;
-            min-width: 280px;
-            background: rgba(255, 255, 255, 0.05);
-            padding: 35px;
-            border-radius: 28px;
-            border: 1px solid rgba(245, 166, 35, 0.2);
-        }
-
-        .register-form-box h2 {
-            color: white;
-            font-size: 28px;
-            text-align: center;
-            margin-bottom: 25px;
-        }
-
-        .input-field {
-            margin-bottom: 20px;
-        }
-
-        .input-field label {
-            display: block;
-            color: #c0c0d0;
-            margin-bottom: 8px;
-            font-size: 14px;
-        }
-
-        .input-field input {
+        .auth-container {
+            background: rgba(30, 34, 41, 0.9);
+            backdrop-filter: blur(10px);
+            border-radius: 40px;
+            padding: 40px;
             width: 100%;
-            padding: 14px 16px;
-            background: rgba(0, 0, 0, 0.4);
-            border: 1px solid #3a3a50;
-            border-radius: 14px;
+            max-width: 420px;
+            animation: fadeSlideUp 0.6s ease-out;
+        }
+        @keyframes fadeSlideUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        h1 { color: #f5a623; text-align: center; margin-bottom: 30px; font-size: 36px; }
+        input {
+            width: 100%;
+            padding: 14px;
+            margin: 10px 0;
+            background: #1e2229;
+            border: 1px solid #2a2f3a;
+            border-radius: 30px;
             color: white;
             font-size: 16px;
-            transition: 0.2s;
         }
-
-        .input-field input:focus {
-            outline: none;
-            border-color: #f5a623;
-            background: rgba(0, 0, 0, 0.6);
-        }
-
-        .register-btn {
+        button {
             width: 100%;
             padding: 14px;
             background: linear-gradient(135deg, #f5a623, #e67e22);
             border: none;
-            border-radius: 14px;
-            color: white;
+            border-radius: 30px;
             font-weight: bold;
             font-size: 16px;
             cursor: pointer;
-            margin-top: 10px;
-            transition: 0.2s;
         }
-
-        .register-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 20px rgba(229, 126, 34, 0.4);
+        .switch { text-align: center; margin-top: 20px; color: #aaa; }
+        .switch a { color: #f5a623; text-decoration: none; }
+        .error { color: #ff6b6b; text-align: center; margin-top: 10px; }
+        .fade-out {
+            animation: fadeOut 0.4s forwards;
         }
-
-        .error-msg {
-            color: #e74c3c;
-            background: rgba(231, 76, 60, 0.1);
-            padding: 10px;
-            border-radius: 12px;
-            text-align: center;
-            margin-top: 20px;
-            display: none;
-        }
-
-        /* Адаптация под телефон */
-        @media (max-width: 750px) {
-            .main-content {
-                flex-direction: column;
-            }
-            .top-bar {
-                flex-direction: column;
-                gap: 15px;
-                text-align: center;
-            }
+        @keyframes fadeOut {
+            to { opacity: 0; transform: scale(0.95); visibility: hidden; }
         }
     </style>
 </head>
 <body>
-
-<div class="top-bar">
-    <h1 class="site-title">🐻 Kinders</h1>
-    <div class="tabs">
-        <a href="login.html" class="tab">Вход</a>
-        <a href="register.html" class="tab active">Регистрация</a>
-    </div>
-</div>
-
-<div class="main-content">
-    <!-- Левая колонка с ответами на вопросы (как ты рисовал) -->
-    <div class="questions">
-        <div class="question-block">
-            <h3>❓ почему именно мы</h3>
-            <p>Свободное общение без блокировок и VPN. Твой голос всегда будет услышан.</p>
-        </div>
-        <div class="question-block">
-            <h3>🔒 безопасный ли сайт</h3>
-            <p>Да! Все пароли зашифрованы, а твои данные не передаются третьим лицам.</p>
-        </div>
-        <div class="question-block">
-            <h3>📱 как связаться с создателем</h3>
-            <p>Telegram: <strong>@kinders_support</strong><br>Email: <strong>support@kinders.chat</strong></p>
-        </div>
-    </div>
-
-    <!-- Правая колонка с формой регистрации -->
-    <div class="register-form-box">
-        <h2>✨ создай аккаунт!</h2>
-
-        <form id="registerForm">
-            <div class="input-field">
-                <label>👤 введите никнейм</label>
-                <input type="text" id="username" placeholder="Никнейм" required>
-            </div>
-
-            <div class="input-field">
-                <label>🔐 введите пароль</label>
-                <input type="password" id="password" placeholder="Пароль" required>
-            </div>
-
-            <div class="input-field">
-                <label>🔐 подтвердите пароль</label>
-                <input type="password" id="confirmPassword" placeholder="Повтори пароль" required>
-            </div>
-
-            <button type="submit" class="register-btn">Зарегистрироваться →</button>
-        </form>
-
-        <div id="errorMsg" class="error-msg"></div>
-    </div>
+<div class="auth-container" id="authContainer">
+    <h1>🐻 Kinders</h1>
+    <form id="registerForm">
+        <input type="text" id="username" placeholder="Никнейм" required>
+        <input type="password" id="password" placeholder="Пароль (мин. 4 символа)" required>
+        <input type="password" id="confirm" placeholder="Подтвердите пароль" required>
+        <button type="submit">Создать аккаунт →</button>
+    </form>
+    <div class="switch">Уже есть аккаунт? <a href="login.html">Войти</a></div>
+    <div id="errorMsg" class="error"></div>
 </div>
 
 <script>
     const form = document.getElementById('registerForm');
     const errorMsg = document.getElementById('errorMsg');
-
-    function showError(message) {
-        errorMsg.textContent = message;
-        errorMsg.style.display = 'block';
-        setTimeout(() => {
-            errorMsg.style.display = 'none';
-        }, 3000);
-    }
+    const container = document.getElementById('authContainer');
 
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
-
         const username = document.getElementById('username').value.trim();
         const password = document.getElementById('password').value;
-        const confirmPassword = document.getElementById('confirmPassword').value;
-
+        const confirm = document.getElementById('confirm').value;
         if (!username || !password) {
-            showError('❌ заполни все поля');
+            errorMsg.innerText = 'Заполните все поля';
             return;
         }
-
-        if (password !== confirmPassword) {
-            showError('❌ пароли не совпадают');
+        if (password !== confirm) {
+            errorMsg.innerText = 'Пароли не совпадают';
             return;
         }
-
         if (password.length < 4) {
-            showError('❌ пароль должен быть минимум 4 символа');
+            errorMsg.innerText = 'Пароль минимум 4 символа';
             return;
         }
-
-        // Запрещаем регистрацию админского ника
-        if (username === 'prisanok') {
-            showError('❌ этот никнейм занят');
-            return;
-        }
-
         try {
             const res = await fetch('/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password })
             });
-
             const data = await res.json();
-
-            if (res.ok) {
-                localStorage.setItem('token', data.token);
-                localStorage.setItem('username', data.username);
-                window.location.href = 'index.html';
+            if (data.success) {
+                container.classList.add('fade-out');
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 400);
             } else {
-                showError('❌ ' + (data.error || 'ошибка регистрации'));
+                errorMsg.innerText = data.error;
             }
-        } catch (err) {
-            showError('❌ ошибка соединения с сервером');
+        } catch(err) {
+            errorMsg.innerText = 'Ошибка соединения';
         }
     });
 </script>
-
 </body>
 </html>
