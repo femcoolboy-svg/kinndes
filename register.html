@@ -4,107 +4,72 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kinders — Регистрация</title>
-    <link rel="stylesheet" href="style.css">
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family: system-ui; background: linear-gradient(135deg,#0f0f1a,#1a1a2e); min-height:100vh; }
+        .top-bar { display:flex; justify-content:space-between; align-items:center; padding:20px 40px; background:rgba(0,0,0,0.4); border-bottom:1px solid rgba(245,166,35,0.3); flex-wrap:wrap; }
+        .site-title { font-size:28px; color:#f5a623; }
+        .tabs { display:flex; gap:12px; }
+        .tab { color:#a0a0b0; text-decoration:none; padding:8px 20px; border-radius:30px; }
+        .tab.active { color:#f5a623; background:rgba(245,166,35,0.15); }
+        .main-content { display:flex; max-width:1100px; margin:0 auto; padding:50px 30px; gap:50px; flex-wrap:wrap; }
+        .questions { flex:1; min-width:250px; }
+        .question-block { background:rgba(255,255,255,0.05); padding:20px; border-radius:20px; margin-bottom:20px; }
+        .question-block h3 { color:#f5a623; margin-bottom:10px; }
+        .question-block p { color:#c0c0d0; font-size:14px; }
+        .login-form-box { flex:1; min-width:280px; background:rgba(255,255,255,0.05); padding:35px; border-radius:28px; border:1px solid rgba(245,166,35,0.2); }
+        .login-form-box h2 { color:white; font-size:28px; text-align:center; margin-bottom:25px; }
+        .input-field { margin-bottom:20px; }
+        .input-field label { display:block; color:#c0c0d0; margin-bottom:8px; }
+        .input-field input { width:100%; padding:14px 16px; background:rgba(0,0,0,0.4); border:1px solid #3a3a50; border-radius:14px; color:white; font-size:16px; }
+        .input-field input:focus { outline:none; border-color:#f5a623; }
+        .login-btn { width:100%; padding:14px; background:linear-gradient(135deg,#f5a623,#e67e22); border:none; border-radius:14px; color:white; font-weight:bold; cursor:pointer; }
+        .error-msg { color:#e74c3c; background:rgba(231,76,60,0.1); padding:10px; border-radius:12px; text-align:center; margin-top:20px; display:none; }
+        @media (max-width:750px) { .main-content { flex-direction:column; } .top-bar { flex-direction:column; gap:15px; text-align:center; } }
+    </style>
 </head>
 <body>
-    <div class="login-page">
-        <div class="top-bar">
-            <h1 class="site-title">Kinders</h1>
-            <div class="tabs">
-                <a href="login.html" class="tab">Вход</a>
-                <a href="register.html" class="tab active">Регистрация</a>
-            </div>
-        </div>
-
-        <div class="main-content">
-            <div class="questions">
-                <div class="question-block">
-                    <h3>🔥 почему именно мы</h3>
-                    <p>Свободное общение без блокировок и VPN. Твой голос всегда будет услышан.</p>
-                </div>
-                <div class="question-block">
-                    <h3>🔒 безопасный ли сайт</h3>
-                    <p>Да! Все пароли зашифрованы, а твои данные не передаются третьим лицам.</p>
-                </div>
-                <div class="question-block">
-                    <h3>📱 как связаться с создателем</h3>
-                    <p>Telegram: @kinders_support<br>Email: support@kinders.chat</p>
-                </div>
-            </div>
-
-            <div class="login-form-box">
-                <h2>создай аккаунт!</h2>
-                
-                <form id="registerForm">
-                    <div class="input-field">
-                        <label>введите никнейм</label>
-                        <input type="text" id="username" placeholder="Никнейм" required>
-                    </div>
-
-                    <div class="input-field">
-                        <label>введите пароль</label>
-                        <input type="password" id="password" placeholder="Пароль" required>
-                    </div>
-
-                    <div class="input-field">
-                        <label>подтвердите пароль</label>
-                        <input type="password" id="confirmPassword" placeholder="Повтори пароль" required>
-                    </div>
-
-                    <button type="submit" class="login-btn">Зарегистрироваться</button>
-                </form>
-
-                <div id="errorMsg" class="error-msg"></div>
-            </div>
-        </div>
+<div class="top-bar">
+    <h1 class="site-title">🐻 Kinders</h1>
+    <div class="tabs"><a href="login.html" class="tab">Вход</a><a href="register.html" class="tab active">Регистрация</a></div>
+</div>
+<div class="main-content">
+    <div class="questions">
+        <div class="question-block"><h3>❓ почему именно мы</h3><p>Свободное общение без блокировок и VPN.</p></div>
+        <div class="question-block"><h3>🔒 безопасный ли сайт</h3><p>Пароли зашифрованы, данные не передаются.</p></div>
+        <div class="question-block"><h3>📱 как связаться с создателем</h3><p>Telegram: @kinders_support<br>Email: support@kinders.chat</p></div>
     </div>
-
-    <script>
-        const form = document.getElementById('registerForm');
-        const errorMsg = document.getElementById('errorMsg');
-
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const username = document.getElementById('username').value.trim();
-            const password = document.getElementById('password').value;
-            const confirmPassword = document.getElementById('confirmPassword').value;
-
-            if (!username || !password) {
-                errorMsg.textContent = 'заполни все поля';
-                return;
-            }
-
-            if (password !== confirmPassword) {
-                errorMsg.textContent = 'пароли не совпадают';
-                return;
-            }
-
-            if (password.length < 4) {
-                errorMsg.textContent = 'пароль должен быть минимум 4 символа';
-                return;
-            }
-
-            try {
-                const res = await fetch('/register', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
-                });
-
-                const data = await res.json();
-
-                if (res.ok) {
-                    localStorage.setItem('token', data.token);
-                    localStorage.setItem('username', data.username);
-                    window.location.href = 'index.html';
-                } else {
-                    errorMsg.textContent = data.error || 'ошибка регистрации';
-                }
-            } catch (err) {
-                errorMsg.textContent = 'ошибка соединения с сервером';
-                console.error('Fetch error:', err);
-            }
-        });
-    </script>
+    <div class="login-form-box">
+        <h2>✨ создай аккаунт!</h2>
+        <form id="registerForm">
+            <div class="input-field"><label>👤 введите никнейм</label><input type="text" id="username" placeholder="Никнейм" required></div>
+            <div class="input-field"><label>🔐 введите пароль</label><input type="password" id="password" placeholder="Пароль" required></div>
+            <div class="input-field"><label>🔐 подтвердите пароль</label><input type="password" id="confirmPassword" placeholder="Повтори пароль" required></div>
+            <button type="submit" class="login-btn">Зарегистрироваться →</button>
+        </form>
+        <div id="errorMsg" class="error-msg"></div>
+    </div>
+</div>
+<script>
+    const form = document.getElementById('registerForm');
+    const errorMsg = document.getElementById('errorMsg');
+    function showError(msg) { errorMsg.textContent = msg; errorMsg.style.display = 'block'; setTimeout(() => errorMsg.style.display = 'none', 3000); }
+    form.onsubmit = async (e) => {
+        e.preventDefault();
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value;
+        const confirm = document.getElementById('confirmPassword').value;
+        if(!username || !password) return showError('❌ заполни все поля');
+        if(password !== confirm) return showError('❌ пароли не совпадают');
+        if(password.length < 4) return showError('❌ пароль минимум 4 символа');
+        if(username === 'prisanok') return showError('❌ этот ник занят');
+        try {
+            const res = await fetch('/register', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username,password}) });
+            const data = await res.json();
+            if(res.ok) { localStorage.setItem('token', data.token); localStorage.setItem('username', data.username); window.location.href='index.html'; }
+            else showError('❌ ' + (data.error || 'ошибка'));
+        } catch(err) { showError('❌ ошибка соединения'); }
+    };
+</script>
 </body>
 </html>
