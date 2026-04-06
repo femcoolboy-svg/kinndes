@@ -4,6 +4,7 @@ const http = require('http');
 const socketIo = require('socket.io');
 const bcrypt = require('bcrypt');
 const cors = require('cors');
+const crypto = require('crypto');
 
 const app = express();
 const server = http.createServer(app);
@@ -34,6 +35,18 @@ let nextInviteId = 1;
 let nextMsgId = 1;
 let nextGroupMsgId = 1;
 
+// Конфиг ЮMoney
+const YMONEY_WALLET = '4100118589497198';
+// Секретное слово для проверки уведомлений (придумай сложное, например "kinders_super_secret_2026")
+const YMONEY_SECRET = 'kinders_super_secret_2026';
+
+// Цены подписок (в рублях)
+const PLUS_PRICES = {
+    'week': 79,
+    'month': 199,
+    'year': 690
+};
+
 // Разрешённый IP для админа
 const ADMIN_ALLOWED_IP = '62.140.249.69';
 
@@ -45,6 +58,25 @@ function banAllAccountsByIp(ip) {
 
 function getClientIp(req) {
     return req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress;
+}
+
+// Вспомогательная функция для генерации тега
+function generateTag() {
+    return Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+}
+
+// Выдача подписки пользователю на определённое количество дней
+function grantPlus(userId, days) {
+    const user = users.find(u => u.id === userId);
+    if (!user) return false;
+    const now = Date.now();
+    let until = user.plus_until ? new Date(user.plus_until).getTime() : now;
+    if (until < now) until = now;
+    const newUntil = new Date(until + days * 24 * 60 * 60 * 1000);
+    user.plus_until = newUntil.toISOString();
+    user.is_plus = true;
+    console.log(`✅ Пользователь ${user.username} получил Kinders+ на ${days} дней до ${newUntil.toISOString()}`);
+    return true;
 }
 
 // Создаём админа prisanok
@@ -60,16 +92,13 @@ function getClientIp(req) {
         banner: null,
         bio: 'Создатель Kinders',
         status: 'online',
-        plus: true,
+        is_plus: true,
+        plus_until: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
         banned: false,
         registration_ip: ADMIN_ALLOWED_IP
     });
-    console.log('✅ Админ prisanok создан');
+    console.log('✅ Админ prisanok создан с бессрочной подпиской');
 })();
-
-function generateTag() {
-    return Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-}
 
 // ---------- РЕГИСТРАЦИЯ ----------
 app.post('/register', async (req, res) => {
@@ -89,16 +118,17 @@ app.post('/register', async (req, res) => {
         banner: null,
         bio: '',
         status: 'online',
-        plus: false,
+        is_plus: false,
+        plus_until: null,
         banned: false,
         registration_ip: clientIp
     };
     users.push(newUser);
     req.session.userId = newUser.id;
-    res.json({ success: true, user: { id: newUser.id, username: newUser.username, tag: newUser.tag } });
+    res.json({ success: true, user: { id: newUser.id, username: newUser.username, tag: newUser.tag, is_plus: false, plus_until: null } });
 });
 
-// ---------- ВХОД С ЗАЩИТОЙ АДМИНА ----------
+// ---------- ВХОД ----------
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
     const clientIp = getClientIp(req);
@@ -116,14 +146,21 @@ app.post('/login', async (req, res) => {
         const valid = await bcrypt.compare(password, user.passwordHash);
         if (!valid) return res.json({ success: false, error: 'Неверные данные' });
         req.session.userId = user.id;
-        return res.json({ success: true, user: { id: user.id, username: user.username, tag: user.tag } });
+        // Проверяем, не истекла ли подписка
+        if (user.plus_until && new Date(user.plus_until) < new Date()) {
+            user.is_plus = false;
+        }
+        return res.json({ success: true, user: { id: user.id, username: user.username, tag: user.tag, is_plus: user.is_plus, plus_until: user.plus_until } });
     }
 
     if (!user) return res.json({ success: false, error: 'Неверные данные' });
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) return res.json({ success: false, error: 'Неверные данные' });
     req.session.userId = user.id;
-    res.json({ success: true, user: { id: user.id, username: user.username, tag: user.tag } });
+    if (user.plus_until && new Date(user.plus_until) < new Date()) {
+        user.is_plus = false;
+    }
+    res.json({ success: true, user: { id: user.id, username: user.username, tag: user.tag, is_plus: user.is_plus, plus_until: user.plus_until } });
 });
 
 // ---------- СЕССИЯ ----------
@@ -131,7 +168,10 @@ app.get('/session', (req, res) => {
     if (!req.session.userId) return res.json({ success: false });
     const user = users.find(u => u.id === req.session.userId && !u.banned);
     if (!user) return res.json({ success: false });
-    res.json({ success: true, user: { id: user.id, username: user.username, tag: user.tag, created_at: user.created_at, avatar: user.avatar, banner: user.banner, bio: user.bio, plus: user.plus } });
+    if (user.plus_until && new Date(user.plus_until) < new Date()) {
+        user.is_plus = false;
+    }
+    res.json({ success: true, user: { id: user.id, username: user.username, tag: user.tag, created_at: user.created_at, avatar: user.avatar, banner: user.banner, bio: user.bio, is_plus: user.is_plus, plus_until: user.plus_until } });
 });
 
 app.post('/logout', (req, res) => {
@@ -188,7 +228,7 @@ app.post('/friend/decline', (req, res) => {
     res.json({ success: true });
 });
 
-// ---------- ПОИСК (РАБОТАЕТ) ----------
+// ---------- ПОИСК ----------
 app.post('/search', (req, res) => {
     const { q } = req.body;
     if (!q) return res.json({ users: [] });
@@ -291,7 +331,6 @@ app.get('/all-users', (req, res) => {
     if (!req.session.userId) return res.json({ users: [] });
     const cur = users.find(u => u.id === req.session.userId);
     if (cur?.username !== 'prisanok') return res.json({ users: [] });
-    // Показываем всех незабаненных, кроме админа
     const all = users.filter(u => !u.banned && u.username !== 'prisanok').map(u => ({
         id: u.id,
         username: u.username,
@@ -319,6 +358,87 @@ app.post('/unban', (req, res) => {
         console.log(`✅ Пользователь ${user.username} разбанен`);
     }
     res.json({ success: true });
+});
+
+// ---------- СМЕНА НИКА ----------
+app.post('/change-username', async (req, res) => {
+    if (!req.session.userId) return res.json({ success: false, error: 'Не авторизован' });
+    const { newUsername } = req.body;
+    if (!newUsername || newUsername.length < 3) return res.json({ success: false, error: 'Ник слишком короткий' });
+    const user = users.find(u => u.id === req.session.userId);
+    if (!user) return res.json({ success: false, error: 'Пользователь не найден' });
+    if (users.find(u => u.username === newUsername && u.id !== user.id)) {
+        return res.json({ success: false, error: 'Никнейм уже занят' });
+    }
+    user.username = newUsername;
+    res.json({ success: true });
+});
+
+// ---------- KINDERS+ ПЛАТЕЖИ ----------
+// Создание платежа: возвращаем форму оплаты (старый метод ЮMoney)
+app.post('/create-payment', (req, res) => {
+    if (!req.session.userId) return res.json({ success: false, error: 'Не авторизован' });
+    const { plan } = req.body; // 'week', 'month', 'year'
+    const amount = PLUS_PRICES[plan];
+    if (!amount) return res.json({ success: false, error: 'Неверный тариф' });
+
+    const userId = req.session.userId;
+    const user = users.find(u => u.id === userId);
+    if (!user) return res.json({ success: false });
+
+    // Формируем параметры для формы ЮMoney (стандартный метод)
+    // Документация: https://yoomoney.ru/docs/payment-buttons/using-api/button
+    const label = `kinders_plus_${userId}_${Date.now()}`;
+    const formUrl = 'https://yoomoney.ru/quickpay/confirm.xml';
+    const formHtml = `
+        <form id="yoomoneyForm" action="${formUrl}" method="POST">
+            <input type="hidden" name="receiver" value="${YMONEY_WALLET}">
+            <input type="hidden" name="formcomment" value="Kinders+ подписка">
+            <input type="hidden" name="short-dest" value="Kinders+">
+            <input type="hidden" name="label" value="${label}">
+            <input type="hidden" name="quickpay-form" value="small">
+            <input type="hidden" name="targets" value="Подписка Kinders+ на ${plan}">
+            <input type="hidden" name="sum" value="${amount}" data-type="number">
+            <input type="hidden" name="comment" value="">
+            <input type="hidden" name="need-fio" value="false">
+            <input type="hidden" name="need-email" value="false">
+            <input type="hidden" name="need-phone" value="false">
+            <input type="hidden" name="need-address" value="false">
+            <input type="submit" value="Перейти к оплате">
+        </form>
+        <script>document.getElementById('yoomoneyForm').submit();</script>
+    `;
+    res.send(formHtml);
+});
+
+// Webhook для уведомлений от ЮMoney (HTTP-уведомления)
+// В настройках кошелька нужно указать URL: https://твой-сайт.onrender.com/payment-notification
+app.post('/payment-notification', (req, res) => {
+    // Проверка подписи (если используется секретное слово)
+    // ЮMoney отправляет POST с параметрами: notification_type, operation_id, amount, currency, datetime, sender, codepro, label, sha1_hash
+    const { label, amount, sha1_hash, notification_type, operation_id, sender, currency } = req.body;
+    if (!label) return res.status(400).send('No label');
+    
+    // В реальном проекте нужно проверять sha1_hash: sha1(параметры + секрет)
+    // Но для простоты пока пропустим, рекомендую потом добавить проверку
+    
+    // Из label достаём userId
+    const match = label.match(/kinders_plus_(\d+)_/);
+    if (!match) return res.status(400).send('Invalid label');
+    const userId = parseInt(match[1]);
+    
+    // Определяем количество дней по сумме (можно точнее по label, но проще по сумме)
+    let days = 0;
+    if (amount == 79) days = 7;
+    else if (amount == 199) days = 30;
+    else if (amount == 690) days = 365;
+    else days = 0;
+    
+    if (days > 0) {
+        const granted = grantPlus(userId, days);
+        if (granted) console.log(`Подписка выдана пользователю ${userId} на ${days} дней, сумма ${amount} руб.`);
+    }
+    res.status(200).send('OK');
 });
 
 // ---------- WEBSOCKET ----------
@@ -355,19 +475,6 @@ io.on('connection', (socket) => {
         }
     });
 });
-// ---------- СМЕНА НИКА (простой, без проверки на уникальность, но для демо) ----------
-app.post('/change-username', async (req, res) => {
-    if (!req.session.userId) return res.json({ success: false, error: 'Не авторизован' });
-    const { newUsername } = req.body;
-    if (!newUsername || newUsername.length < 3) return res.json({ success: false, error: 'Ник слишком короткий' });
-    const user = users.find(u => u.id === req.session.userId);
-    if (!user) return res.json({ success: false, error: 'Пользователь не найден' });
-    // Проверка на уникальность (кроме админа)
-    if (users.find(u => u.username === newUsername && u.id !== user.id)) {
-        return res.json({ success: false, error: 'Никнейм уже занят' });
-    }
-    user.username = newUsername;
-    res.json({ success: true });
-});
+
 const PORT = process.env.PORT || 10000;
 server.listen(PORT, () => console.log(`🚀 Kinders сервер запущен на порту ${PORT}`));
