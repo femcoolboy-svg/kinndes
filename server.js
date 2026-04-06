@@ -4,23 +4,24 @@ const http = require('http');
 const socketIo = require('socket.io');
 const bcrypt = require('bcrypt');
 const cors = require('cors');
-const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server, { cors: { origin: "*", methods: ["GET", "POST"] } });
+const io = socketIo(server, {
+    cors: { origin: "*", methods: ["GET", "POST"] }
+});
 
 app.use(cors());
 app.use(express.json());
 app.use(express.static('.'));
 app.use(session({
-    secret: 'kinders_super_secret_2024',
+    secret: 'kinders_super_secret_key_2024',
     resave: false,
     saveUninitialized: false,
     cookie: { maxAge: 7 * 24 * 60 * 60 * 1000 }
 }));
 
-// ----- Хранилища -----
+// ---------- Хранилища в памяти ----------
 let users = [];
 let friends = [];
 let groups = [];
@@ -35,13 +36,13 @@ let nextInviteId = 1;
 let nextMsgId = 1;
 let nextGroupMsgId = 1;
 
-// Админ prisanok / qazzaq32qaz
+// Создаём админа prisanok (пароль qazzaq32qaz)
 (async () => {
-    const hash = await bcrypt.hash('qazzaq32qaz', 10);
+    const adminPassHash = await bcrypt.hash('qazzaq32qaz', 10);
     users.push({
         id: nextUserId++,
         username: 'prisanok',
-        passwordHash: hash,
+        passwordHash: adminPassHash,
         tag: '0001',
         created_at: new Date().toISOString(),
         avatar: null,
@@ -53,13 +54,15 @@ let nextGroupMsgId = 1;
     });
 })();
 
-function generateTag() { return Math.floor(Math.random()*10000).toString().padStart(4,'0'); }
+function generateTag() {
+    return Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+}
 
-// ----- Маршруты -----
+// ---------- Регистрация ----------
 app.post('/register', async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) return res.json({ success: false, error: 'Заполните поля' });
-    if (users.find(u => u.username === username)) return res.json({ success: false, error: 'Ник занят' });
+    if (users.find(u => u.username === username)) return res.json({ success: false, error: 'Никнейм занят' });
     if (password.length < 4) return res.json({ success: false, error: 'Пароль минимум 4 символа' });
     const hash = await bcrypt.hash(password, 10);
     const newUser = {
@@ -68,13 +71,19 @@ app.post('/register', async (req, res) => {
         passwordHash: hash,
         tag: generateTag(),
         created_at: new Date().toISOString(),
-        avatar: null, banner: null, bio: '', status: 'online', plus: false, banned: false
+        avatar: null,
+        banner: null,
+        bio: '',
+        status: 'online',
+        plus: false,
+        banned: false
     };
     users.push(newUser);
     req.session.userId = newUser.id;
     res.json({ success: true, user: { id: newUser.id, username: newUser.username, tag: newUser.tag } });
 });
 
+// ---------- Вход ----------
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
     const user = users.find(u => u.username === username && !u.banned);
@@ -85,6 +94,7 @@ app.post('/login', async (req, res) => {
     res.json({ success: true, user: { id: user.id, username: user.username, tag: user.tag } });
 });
 
+// ---------- Проверка сессии ----------
 app.get('/session', (req, res) => {
     if (!req.session.userId) return res.json({ success: false });
     const user = users.find(u => u.id === req.session.userId && !u.banned);
@@ -92,12 +102,13 @@ app.get('/session', (req, res) => {
     res.json({ success: true, user: { id: user.id, username: user.username, tag: user.tag, created_at: user.created_at, avatar: user.avatar, banner: user.banner, bio: user.bio, plus: user.plus } });
 });
 
+// ---------- Выход ----------
 app.post('/logout', (req, res) => {
     req.session.destroy();
     res.json({ success: true });
 });
 
-// Друзья
+// ---------- Друзья ----------
 app.post('/friends', (req, res) => {
     if (!req.session.userId) return res.json({ friends: [] });
     const userId = req.session.userId;
@@ -125,8 +136,9 @@ app.post('/friend/add', (req, res) => {
     if (!req.session.userId) return res.json({ success: false });
     const { to } = req.body;
     const from = req.session.userId;
-    if (from === to) return res.json({ success: false, error: 'Нельзя себя' });
-    if (friends.find(f => (f.user_id===from && f.friend_id===to) || (f.user_id===to && f.friend_id===from))) return res.json({ success: false, error: 'Уже есть' });
+    if (from === to) return res.json({ success: false, error: 'Нельзя добавить себя' });
+    const existing = friends.find(f => (f.user_id === from && f.friend_id === to) || (f.user_id === to && f.friend_id === from));
+    if (existing) return res.json({ success: false, error: 'Запрос уже отправлен или вы уже друзья' });
     friends.push({ id: nextFriendId++, user_id: from, friend_id: to, status: 'pending' });
     res.json({ success: true });
 });
@@ -141,10 +153,11 @@ app.post('/friend/accept', (req, res) => {
 app.post('/friend/decline', (req, res) => {
     const { id } = req.body;
     const idx = friends.findIndex(f => f.id === id);
-    if (idx !== -1) friends.splice(idx,1);
+    if (idx !== -1) friends.splice(idx, 1);
     res.json({ success: true });
 });
 
+// ---------- Поиск ----------
 app.post('/search', (req, res) => {
     const { q } = req.body;
     if (!q) return res.json({ users: [] });
@@ -152,11 +165,17 @@ app.post('/search', (req, res) => {
     res.json({ users: found.map(u => ({ id: u.id, username: u.username, tag: u.tag })) });
 });
 
-// Личные сообщения
+// ---------- Личные сообщения ----------
 app.post('/send-message', (req, res) => {
     if (!req.session.userId) return res.json({ success: false });
     const { to_user_id, message } = req.body;
-    privateMessages.push({ id: nextMsgId++, from_user_id: req.session.userId, to_user_id, message, timestamp: new Date().toISOString() });
+    privateMessages.push({
+        id: nextMsgId++,
+        from_user_id: req.session.userId,
+        to_user_id,
+        message,
+        timestamp: new Date().toISOString()
+    });
     res.json({ success: true });
 });
 
@@ -164,21 +183,31 @@ app.post('/messages', (req, res) => {
     if (!req.session.userId) return res.json({ messages: [] });
     const { u2 } = req.body;
     const u1 = req.session.userId;
-    const chat = privateMessages.filter(m => (m.from_user_id===u1 && m.to_user_id===u2) || (m.from_user_id===u2 && m.to_user_id===u1));
-    chat.sort((a,b)=>new Date(a.timestamp)-new Date(b.timestamp));
+    const chat = privateMessages.filter(m => (m.from_user_id === u1 && m.to_user_id === u2) || (m.from_user_id === u2 && m.to_user_id === u1));
+    chat.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
     res.json({ messages: chat });
 });
 
-// Группы
+// ---------- Группы ----------
 app.post('/group/create', (req, res) => {
     if (!req.session.userId) return res.json({ success: false });
     const { name, members } = req.body;
     const owner = req.session.userId;
-    const allMembers = [...new Set([owner, ...(members||[])])];
+    const allMembers = [...new Set([owner, ...(members || [])])];
     if (allMembers.length < 2) return res.json({ success: false, error: 'Нужно минимум 2 участника' });
-    const newGroup = { id: nextGroupId++, name, owner_id: owner, created_at: new Date().toISOString(), members: allMembers };
+    const newGroup = {
+        id: nextGroupId++,
+        name,
+        owner_id: owner,
+        created_at: new Date().toISOString(),
+        members: allMembers
+    };
     groups.push(newGroup);
-    for (let m of allMembers) if (m !== owner) groupInvites.push({ id: nextInviteId++, group_id: newGroup.id, from_user_id: owner, to_user_id: m, status: 'pending' });
+    for (let m of allMembers) {
+        if (m !== owner) {
+            groupInvites.push({ id: nextInviteId++, group_id: newGroup.id, from_user_id: owner, to_user_id: m, status: 'pending' });
+        }
+    }
     res.json({ success: true });
 });
 
@@ -191,7 +220,7 @@ app.post('/groups', (req, res) => {
 
 app.post('/group/messages', (req, res) => {
     const { groupId } = req.body;
-    const msgs = groupMessages.filter(m => m.group_id === groupId).sort((a,b)=>new Date(a.timestamp)-new Date(b.timestamp));
+    const msgs = groupMessages.filter(m => m.group_id === groupId).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
     res.json({ messages: msgs });
 });
 
@@ -201,13 +230,29 @@ app.post('/group/send-message', (req, res) => {
     const group = groups.find(g => g.id === group_id);
     if (!group || !group.members.includes(req.session.userId)) return res.json({ success: false });
     const fromUser = users.find(u => u.id === req.session.userId);
-    const newMsg = { id: nextGroupMsgId++, group_id, from_user_id: req.session.userId, fromName: fromUser.username, message, timestamp: new Date().toISOString() };
+    const newMsg = {
+        id: nextGroupMsgId++,
+        group_id,
+        from_user_id: req.session.userId,
+        fromName: fromUser.username,
+        message,
+        timestamp: new Date().toISOString()
+    };
     groupMessages.push(newMsg);
-    group.members.forEach(mid => io.to(`user_${mid}`).emit('group-message', { group: group_id, from: req.session.userId, fromName: fromUser.username, msg: message, time: newMsg.timestamp }));
+    // Рассылка через сокеты
+    group.members.forEach(mid => {
+        io.to(`user_${mid}`).emit('group-message', {
+            group: group_id,
+            from: req.session.userId,
+            fromName: fromUser.username,
+            msg: message,
+            time: newMsg.timestamp
+        });
+    });
     res.json({ success: true });
 });
 
-// Админка
+// ---------- Админка (только prisanok) ----------
 app.get('/all-users', (req, res) => {
     if (!req.session.userId) return res.json({ users: [] });
     const cur = users.find(u => u.id === req.session.userId);
@@ -222,23 +267,43 @@ app.post('/ban', (req, res) => {
     res.json({ success: true });
 });
 
-// WebSocket
+// ---------- WebSocket ----------
 io.on('connection', (socket) => {
-    socket.on('register', (id) => { socket.join(`user_${id}`); });
+    socket.on('register', (id) => {
+        socket.join(`user_${id}`);
+    });
     socket.on('private-message', (data) => {
         const { from, to, msg, fromName } = data;
-        privateMessages.push({ id: nextMsgId++, from_user_id: from, to_user_id: to, message: msg, timestamp: new Date().toISOString() });
+        privateMessages.push({
+            id: nextMsgId++,
+            from_user_id: from,
+            to_user_id: to,
+            message: msg,
+            timestamp: new Date().toISOString()
+        });
         io.to(`user_${to}`).emit('private-message', { from, msg, time: new Date().toISOString(), fromName });
     });
     socket.on('group-message', (data) => {
         const { group, from, fromName, msg } = data;
         const groupObj = groups.find(g => g.id === group);
         if (groupObj) {
-            groupMessages.push({ id: nextGroupMsgId++, group_id: group, from_user_id: from, fromName, message: msg, timestamp: new Date().toISOString() });
-            groupObj.members.forEach(mid => io.to(`user_${mid}`).emit('group-message', { group, from, fromName, msg, time: new Date().toISOString() }));
+            groupMessages.push({
+                id: nextGroupMsgId++,
+                group_id: group,
+                from_user_id: from,
+                fromName,
+                message: msg,
+                timestamp: new Date().toISOString()
+            });
+            groupObj.members.forEach(mid => {
+                io.to(`user_${mid}`).emit('group-message', { group, from, fromName, msg, time: new Date().toISOString() });
+            });
         }
     });
 });
 
+// ---------- Запуск ----------
 const PORT = process.env.PORT || 10000;
-server.listen(PORT, () => console.log(`Kinders server on ${PORT}`));
+server.listen(PORT, () => {
+    console.log(`Kinders сервер запущен на порту ${PORT}`);
+});
