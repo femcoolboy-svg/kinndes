@@ -13,21 +13,25 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.5s ease;
         }
         .auth-container {
-            background: rgba(30, 34, 41, 0.9);
+            background: rgba(30,34,41,0.9);
             backdrop-filter: blur(10px);
             border-radius: 40px;
             padding: 40px;
             width: 100%;
             max-width: 420px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
             animation: fadeSlideUp 0.6s ease-out;
         }
         @keyframes fadeSlideUp {
             from { opacity: 0; transform: translateY(30px); }
             to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-out {
+            animation: fadeOut 0.4s forwards;
+        }
+        @keyframes fadeOut {
+            to { opacity: 0; transform: scale(0.95); visibility: hidden; }
         }
         h1 { color: #f5a623; text-align: center; margin-bottom: 30px; font-size: 36px; }
         input {
@@ -43,26 +47,16 @@
         button {
             width: 100%;
             padding: 14px;
-            background: linear-gradient(135deg, #f5a623, #e67e22);
+            background: linear-gradient(135deg,#f5a623,#e67e22);
             border: none;
             border-radius: 30px;
             font-weight: bold;
             font-size: 16px;
             cursor: pointer;
-            transition: transform 0.2s;
         }
-        button:hover { transform: scale(1.02); }
         .switch { text-align: center; margin-top: 20px; color: #aaa; }
         .switch a { color: #f5a623; text-decoration: none; }
         .error { color: #ff6b6b; text-align: center; margin-top: 10px; }
-        .hidden { display: none; }
-        /* Анимация исчезновения */
-        .fade-out {
-            animation: fadeOut 0.4s forwards;
-        }
-        @keyframes fadeOut {
-            to { opacity: 0; transform: scale(0.95); visibility: hidden; }
-        }
     </style>
 </head>
 <body>
@@ -76,39 +70,23 @@
     <div class="switch">Нет аккаунта? <a href="register.html">Зарегистрироваться</a></div>
     <div id="errorMsg" class="error"></div>
 </div>
-
 <script>
     const form = document.getElementById('loginForm');
     const errorMsg = document.getElementById('errorMsg');
     const container = document.getElementById('authContainer');
-
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
         const username = document.getElementById('username').value.trim();
         const password = document.getElementById('password').value;
-        if (!username || !password) {
-            errorMsg.innerText = 'Заполните все поля';
-            return;
-        }
+        if (!username || !password) return errorMsg.innerText = 'Заполните поля';
         try {
-            const res = await fetch('/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
-            });
+            const res = await fetch('/login', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username,password}) });
             const data = await res.json();
             if (data.success) {
-                // Плавное исчезновение и переход
                 container.classList.add('fade-out');
-                setTimeout(() => {
-                    window.location.href = 'index.html';
-                }, 400);
-            } else {
-                errorMsg.innerText = data.error;
-            }
-        } catch(err) {
-            errorMsg.innerText = 'Ошибка соединения';
-        }
+                setTimeout(() => { window.location.href = 'index.html'; }, 400);
+            } else errorMsg.innerText = data.error;
+        } catch { errorMsg.innerText = 'Ошибка соединения'; }
     });
 </script>
 </body>
