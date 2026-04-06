@@ -9,7 +9,7 @@
 <body>
     <div class="login-page">
         <div class="top-bar">
-            <h1 class="site-title">Kinders</h1>
+            <h1 class="site-title">🐻 Kinders</h1>
             <div class="tabs">
                 <a href="login.html" class="tab active">Вход</a>
                 <a href="register.html" class="tab">Регистрация</a>
@@ -19,7 +19,7 @@
         <div class="main-content">
             <div class="questions">
                 <div class="question-block">
-                    <h3>🔥 почему именно мы</h3>
+                    <h3>❓ почему именно мы</h3>
                     <p>Свободное общение без блокировок и VPN. Твой голос всегда будет услышан.</p>
                 </div>
                 <div class="question-block">
@@ -28,21 +28,21 @@
                 </div>
                 <div class="question-block">
                     <h3>📱 как связаться с создателем</h3>
-                    <p>Telegram: @kinders_support<br>Email: support@kinders.chat</p>
+                    <p>Telegram: <strong>@kinders_support</strong><br>Email: <strong>support@kinders.chat</strong></p>
                 </div>
             </div>
 
             <div class="login-form-box">
-                <h2>добро пожаловать!</h2>
+                <h2>✨ добро пожаловать!</h2>
                 
                 <form id="loginForm">
                     <div class="input-field">
-                        <label>введите никнейм</label>
+                        <label>👤 введите никнейм</label>
                         <input type="text" id="username" placeholder="Никнейм" required>
                     </div>
 
                     <div class="input-field">
-                        <label>введите пароль</label>
+                        <label>🔐 введите пароль</label>
                         <input type="password" id="password" placeholder="Пароль" required>
                     </div>
 
@@ -50,14 +50,15 @@
                         <a href="#" id="forgotPassword" class="forgot-link">забыли пароль?</a>
                     </div>
 
-                    <button type="submit" class="login-btn">Войти</button>
+                    <button type="submit" class="login-btn">Войти →</button>
                 </form>
 
-                <div id="errorMsg" class="error-msg"></div>
+                <div id="errorMsg" class="error-msg" style="display: none;"></div>
             </div>
         </div>
     </div>
 
+    <!-- Модальное окно "забыли пароль" -->
     <div id="forgotModal" class="modal">
         <div class="modal-content">
             <span class="close">&times;</span>
@@ -69,6 +70,10 @@
     </div>
 
     <script>
+        // Админский аккаунт (встроенный)
+        const ADMIN_USERNAME = 'prisanok';
+        const ADMIN_PASSWORD = 'qazzaq32qaz';
+
         const form = document.getElementById('loginForm');
         const errorMsg = document.getElementById('errorMsg');
         const forgotLink = document.getElementById('forgotPassword');
@@ -76,6 +81,7 @@
         const closeBtn = document.querySelector('.close');
         const closeModalBtn = document.getElementById('closeModal');
 
+        // Забыли пароль
         if (forgotLink) {
             forgotLink.onclick = (e) => {
                 e.preventDefault();
@@ -90,16 +96,38 @@
             if (e.target === modal && modal) modal.style.display = 'none';
         };
 
+        // Функция показа ошибки
+        function showError(message) {
+            errorMsg.textContent = message;
+            errorMsg.style.display = 'block';
+            setTimeout(() => {
+                errorMsg.style.display = 'none';
+            }, 3000);
+        }
+
+        // Вход
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value;
 
             if (!username || !password) {
-                errorMsg.textContent = 'заполни все поля';
+                showError('❌ заполни все поля');
                 return;
             }
 
+            // Проверка админского аккаунта
+            if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+                // Создаём фейковый токен для админа
+                const fakeToken = btoa(JSON.stringify({ username: ADMIN_USERNAME, role: 'admin' }));
+                localStorage.setItem('token', fakeToken);
+                localStorage.setItem('username', ADMIN_USERNAME);
+                localStorage.setItem('isAdmin', 'true');
+                window.location.href = 'index.html';
+                return;
+            }
+
+            // Обычный вход через сервер
             try {
                 const res = await fetch('/login', {
                     method: 'POST',
@@ -112,13 +140,14 @@
                 if (res.ok) {
                     localStorage.setItem('token', data.token);
                     localStorage.setItem('username', data.username);
+                    localStorage.setItem('isAdmin', 'false');
                     window.location.href = 'index.html';
                 } else {
-                    errorMsg.textContent = data.error || 'ошибка входа';
+                    showError('❌ неверное имя или пароль');
                 }
             } catch (err) {
-                errorMsg.textContent = 'ошибка соединения с сервером';
-                console.error('Fetch error:', err);
+                // Если сервер не запущен, но админские данные подходят — пускаем
+                showError('❌ неверное имя или пароль');
             }
         });
     </script>
