@@ -13,7 +13,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('.'));
 app.use(session({
-    secret: 'kinders_super_secret_2024',
+    secret: 'kinders_super_secret_key_2024',
     resave: false,
     saveUninitialized: false,
     cookie: { maxAge: 7 * 24 * 60 * 60 * 1000 }
@@ -34,17 +34,20 @@ let nextInviteId = 1;
 let nextMsgId = 1;
 let nextGroupMsgId = 1;
 
-// Разрешённый IP для админа (твой)
+// Разрешённый IP для админа
 const ADMIN_ALLOWED_IP = '62.140.249.69';
 
-// Функция бана всех аккаунтов с IP
 function banAllAccountsByIp(ip) {
     const toBan = users.filter(u => u.registration_ip === ip && u.username !== 'prisanok');
     toBan.forEach(u => { u.banned = true; });
     return toBan.length;
 }
 
-// Создаём админа prisanok (пароль qazzaq32qaz) с привязкой к IP
+function getClientIp(req) {
+    return req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress;
+}
+
+// Создаём админа prisanok
 (async () => {
     const adminPassHash = await bcrypt.hash('qazzaq32qaz', 10);
     users.push({
@@ -61,18 +64,14 @@ function banAllAccountsByIp(ip) {
         banned: false,
         registration_ip: ADMIN_ALLOWED_IP
     });
+    console.log('✅ Админ prisanok создан');
 })();
 
 function generateTag() {
     return Math.floor(Math.random() * 10000).toString().padStart(4, '0');
 }
 
-// Получение реального IP клиента (через прокси Render)
-function getClientIp(req) {
-    return req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress;
-}
-
-// ---------- Регистрация (сохраняем IP) ----------
+// ---------- РЕГИСТРАЦИЯ ----------
 app.post('/register', async (req, res) => {
     const { username, password } = req.body;
     const clientIp = getClientIp(req);
@@ -99,23 +98,20 @@ app.post('/register', async (req, res) => {
     res.json({ success: true, user: { id: newUser.id, username: newUser.username, tag: newUser.tag } });
 });
 
-// ---------- Вход с защитой админа по IP ----------
+// ---------- ВХОД С ЗАЩИТОЙ АДМИНА ----------
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
     const clientIp = getClientIp(req);
     const user = users.find(u => u.username === username && !u.banned);
 
-    // Защита админского аккаунта
     if (username === 'prisanok') {
         if (clientIp !== ADMIN_ALLOWED_IP) {
-            // Чужой IP — баним все аккаунты с этого IP
             const bannedCount = banAllAccountsByIp(clientIp);
             return res.json({
                 success: false,
                 error: `Здравствуйте! За попытку зайти на аккаунт администрации у вас будут удалены все аккаунты (${bannedCount} акк. заблокировано).`
             });
         }
-        // Админ логинится с разрешённого IP
         if (!user) return res.json({ success: false, error: 'Неверные данные' });
         const valid = await bcrypt.compare(password, user.passwordHash);
         if (!valid) return res.json({ success: false, error: 'Неверные данные' });
@@ -123,7 +119,6 @@ app.post('/login', async (req, res) => {
         return res.json({ success: true, user: { id: user.id, username: user.username, tag: user.tag } });
     }
 
-    // Обычный пользователь
     if (!user) return res.json({ success: false, error: 'Неверные данные' });
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) return res.json({ success: false, error: 'Неверные данные' });
@@ -131,7 +126,7 @@ app.post('/login', async (req, res) => {
     res.json({ success: true, user: { id: user.id, username: user.username, tag: user.tag } });
 });
 
-// ---------- Проверка сессии ----------
+// ---------- СЕССИЯ ----------
 app.get('/session', (req, res) => {
     if (!req.session.userId) return res.json({ success: false });
     const user = users.find(u => u.id === req.session.userId && !u.banned);
@@ -139,13 +134,12 @@ app.get('/session', (req, res) => {
     res.json({ success: true, user: { id: user.id, username: user.username, tag: user.tag, created_at: user.created_at, avatar: user.avatar, banner: user.banner, bio: user.bio, plus: user.plus } });
 });
 
-// ---------- Выход ----------
 app.post('/logout', (req, res) => {
     req.session.destroy();
     res.json({ success: true });
 });
 
-// ---------- Друзья ----------
+// ---------- ДРУЗЬЯ ----------
 app.post('/friends', (req, res) => {
     if (!req.session.userId) return res.json({ friends: [] });
     const userId = req.session.userId;
@@ -175,7 +169,7 @@ app.post('/friend/add', (req, res) => {
     const from = req.session.userId;
     if (from === to) return res.json({ success: false, error: 'Нельзя добавить себя' });
     const existing = friends.find(f => (f.user_id === from && f.friend_id === to) || (f.user_id === to && f.friend_id === from));
-    if (existing) return res.json({ success: false, error: 'Запрос уже отправлен или вы уже друзья' });
+    if (existing) return res.json({ success: false, error: 'Уже есть запрос' });
     friends.push({ id: nextFriendId++, user_id: from, friend_id: to, status: 'pending' });
     res.json({ success: true });
 });
@@ -194,7 +188,7 @@ app.post('/friend/decline', (req, res) => {
     res.json({ success: true });
 });
 
-// ---------- Поиск пользователей (исправлен) ----------
+// ---------- ПОИСК (РАБОТАЕТ) ----------
 app.post('/search', (req, res) => {
     const { q } = req.body;
     if (!q) return res.json({ users: [] });
@@ -206,7 +200,7 @@ app.post('/search', (req, res) => {
     res.json({ users: found.map(u => ({ id: u.id, username: u.username, tag: u.tag })) });
 });
 
-// ---------- Личные сообщения ----------
+// ---------- ЛИЧНЫЕ СООБЩЕНИЯ ----------
 app.post('/send-message', (req, res) => {
     if (!req.session.userId) return res.json({ success: false });
     const { to_user_id, message } = req.body;
@@ -229,7 +223,7 @@ app.post('/messages', (req, res) => {
     res.json({ messages: chat });
 });
 
-// ---------- Группы ----------
+// ---------- ГРУППЫ ----------
 app.post('/group/create', (req, res) => {
     if (!req.session.userId) return res.json({ success: false });
     const { name, members } = req.body;
@@ -292,23 +286,42 @@ app.post('/group/send-message', (req, res) => {
     res.json({ success: true });
 });
 
-// ---------- Админка (только prisanok) ----------
+// ---------- АДМИНКА (список пользователей + бан/разбан) ----------
 app.get('/all-users', (req, res) => {
     if (!req.session.userId) return res.json({ users: [] });
     const cur = users.find(u => u.id === req.session.userId);
     if (cur?.username !== 'prisanok') return res.json({ users: [] });
-    const all = users.filter(u => !u.banned && u.username !== 'prisanok').map(u => ({ id: u.id, username: u.username, tag: u.tag }));
+    // Показываем всех незабаненных, кроме админа
+    const all = users.filter(u => !u.banned && u.username !== 'prisanok').map(u => ({
+        id: u.id,
+        username: u.username,
+        tag: u.tag,
+        banned: u.banned
+    }));
     res.json({ users: all });
 });
 
 app.post('/ban', (req, res) => {
     const { userId } = req.body;
     const user = users.find(u => u.id === userId);
-    if (user) user.banned = true;
+    if (user && user.username !== 'prisanok') {
+        user.banned = true;
+        console.log(`🔨 Пользователь ${user.username} забанен`);
+    }
     res.json({ success: true });
 });
 
-// ---------- WebSocket ----------
+app.post('/unban', (req, res) => {
+    const { userId } = req.body;
+    const user = users.find(u => u.id === userId);
+    if (user && user.username !== 'prisanok') {
+        user.banned = false;
+        console.log(`✅ Пользователь ${user.username} разбанен`);
+    }
+    res.json({ success: true });
+});
+
+// ---------- WEBSOCKET ----------
 io.on('connection', (socket) => {
     socket.on('register', (id) => {
         socket.join(`user_${id}`);
@@ -343,8 +356,5 @@ io.on('connection', (socket) => {
     });
 });
 
-// ---------- Запуск ----------
 const PORT = process.env.PORT || 10000;
-server.listen(PORT, () => {
-    console.log(`Kinders сервер запущен на порту ${PORT}`);
-});
+server.listen(PORT, () => console.log(`🚀 Kinders сервер запущен на порту ${PORT}`));
