@@ -49,7 +49,6 @@
         .theme-btn, .logout-btn { background: var(--bg-input); border: none; padding: 8px 16px; border-radius: 30px; cursor: pointer; }
         .logout-btn { background: #ff6b6b; color: white; }
         
-        /* 3 колонки */
         .main-grid {
             display: grid;
             grid-template-columns: 320px 1fr 320px;
@@ -83,7 +82,6 @@
         }
         @keyframes slideFromBottom { from { opacity: 0; transform: translateY(60px); } to { opacity: 1; transform: translateY(0); } }
         
-        /* Стили для левой панели (как раньше) */
         .panel-title { font-size: 12px; text-transform: uppercase; margin: 16px 0 12px; color: var(--text-secondary); }
         .divider { height: 1px; background: var(--divider); margin: 16px 0; }
         .search-box { display: flex; gap: 10px; margin-bottom: 20px; }
@@ -105,7 +103,6 @@
         .btn-success { background: #6bdd8c; color: #1a1a2e; }
         .btn-danger { background: #ff6b6b; color: white; }
         
-        /* Стили для профиля */
         .profile-header {
             text-align: center;
             margin-bottom: 20px;
@@ -168,7 +165,6 @@
         .profile-btn-danger { background: #ff6b6b; color: white; }
         .profile-btn-plus { background: linear-gradient(135deg, #FFD700, #FFA500); color: #1a1a2e; }
         
-        /* Чат */
         .chat-header { padding: 16px 20px; border-bottom: 1px solid var(--border); font-weight: bold; }
         .messages { flex:1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
         .message { max-width: 70%; padding: 10px 18px; border-radius: 24px; }
@@ -180,6 +176,16 @@
         .hidden { display: none; }
         .error { color: #ff6b6b; }
         .text-center { text-align: center; }
+        .plus-badge {
+            background: linear-gradient(135deg, #FFD700, #FFA500);
+            border-radius: 20px;
+            padding: 2px 10px;
+            font-size: 12px;
+            font-weight: bold;
+            display: inline-block;
+            margin-left: 8px;
+            color: #1a1a2e;
+        }
         @media (max-width: 1000px) {
             .main-grid { grid-template-columns: 1fr; gap: 16px; }
             .friends-panel, .profile-panel { height: auto; max-height: 350px; }
@@ -220,20 +226,21 @@
         </div>
     </div>
 
-    <!-- ЦЕНТРАЛЬНАЯ КОЛОНКА: ЧАТ -->
+    <!-- ЦЕНТР: ЧАТ -->
     <div class="chat-area">
         <div class="chat-header" id="chatTitle">💬 Выберите друга или группу</div>
         <div id="messages" class="messages"><div class="text-center" style="margin-top:40px;">👈 Нажмите на друга</div></div>
         <div class="input-area"><input id="messageInput" placeholder="Сообщение..."><button id="sendMsgBtn">Отправить</button></div>
     </div>
 
-    <!-- ПРАВАЯ КОЛОНКА: ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ -->
+    <!-- ПРАВАЯ КОЛОНКА: ПРОФИЛЬ -->
     <div class="profile-panel">
         <div class="profile-header">
             <div class="profile-avatar" id="profileAvatar">👤</div>
             <div class="profile-name" id="profileName"></div>
             <div class="profile-tag" id="profileTag"></div>
             <div class="profile-bio" id="profileBio">Био: пока пусто</div>
+            <div id="plusStatus" style="margin-top: 8px;"></div>
         </div>
         <div class="profile-stats">
             <div class="stat"><div class="stat-value" id="friendsCount">0</div><div class="stat-label">друзей</div></div>
@@ -242,7 +249,7 @@
         </div>
         <button class="profile-btn profile-btn-primary" id="changeUsernameBtn">✏️ Сменить ник</button>
         <button class="profile-btn profile-btn-secondary" id="changeAvatarBtn">🖼️ Сменить аватар</button>
-        <button class="profile-btn profile-btn-plus" id="plusBtn">💎 Kinders+ (скоро)</button>
+        <button class="profile-btn profile-btn-plus" id="plusBtn">💎 Купить Kinders+</button>
         <button class="profile-btn profile-btn-danger" id="logoutProfileBtn">🚪 Выйти</button>
     </div>
 </div>
@@ -260,7 +267,6 @@
     document.getElementById('themeSun').onclick=()=>setTheme('light');
     document.getElementById('themeMoon').onclick=()=>setTheme('dark');
 
-    // ПРОВЕРКА СЕССИИ
     async function checkSession() {
         const res=await fetch('/session');
         const data=await res.json();
@@ -277,18 +283,29 @@
     }
 
     function updateProfileUI() {
-        document.getElementById('profileName').innerText = currentUser.username;
+        document.getElementById('profileName').innerHTML = currentUser.username + (currentUser.is_plus ? '<span class="plus-badge">💎 Kinders+</span>' : '');
         document.getElementById('profileTag').innerText = `#${currentUser.tag}`;
         if(currentUser.bio) document.getElementById('profileBio').innerText = currentUser.bio;
         if(currentUser.created_at) {
             const date = new Date(currentUser.created_at).toLocaleDateString();
             document.getElementById('regDate').innerText = date;
         }
-        // Аватар заглушка
         document.getElementById('profileAvatar').innerHTML = currentUser.avatar ? `<img src="${currentUser.avatar}">` : '👤';
+        
+        // Отображение статуса подписки
+        const plusStatusDiv = document.getElementById('plusStatus');
+        if (currentUser.is_plus && currentUser.plus_until) {
+            const untilDate = new Date(currentUser.plus_until);
+            if (untilDate > new Date()) {
+                plusStatusDiv.innerHTML = `<span style="background:linear-gradient(135deg,#FFD700,#FFA500); padding:4px 12px; border-radius:20px; font-size:12px;">⭐ Активна до ${untilDate.toLocaleDateString()}</span>`;
+            } else {
+                plusStatusDiv.innerHTML = `<span style="background:#ff6b6b; padding:4px 12px; border-radius:20px; font-size:12px;">❌ Подписка истекла</span>`;
+            }
+        } else {
+            plusStatusDiv.innerHTML = `<span style="background:var(--bg-input); padding:4px 12px; border-radius:20px; font-size:12px;">🔘 Нет подписки</span>`;
+        }
     }
 
-    // WEBSOCKET
     function initSocket() {
         socket=io();
         socket.on('connect',()=>{ if(currentUser) socket.emit('register',currentUser.id); });
@@ -318,7 +335,6 @@
         setTimeout(()=>n.remove(),3000);
     }
 
-    // ДРУЗЬЯ, ЗАПРОСЫ, ГРУППЫ
     async function loadFriends(){
         const res=await fetch('/friends',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
         const data=await res.json();
@@ -404,7 +420,6 @@
         document.getElementById('messageInput').value='';
     }
 
-    // ПОИСК
     document.getElementById('searchBtn').onclick=async()=>{
         const q=document.getElementById('searchInput').value;
         if(!q) return;
@@ -445,7 +460,6 @@
     document.getElementById('sendMsgBtn').onclick=sendMessage;
     document.getElementById('messageInput').addEventListener('keypress',(e)=>{ if(e.key==='Enter') sendMessage(); });
 
-    // СМЕНА НИКА (простой запрос)
     document.getElementById('changeUsernameBtn').onclick = async () => {
         const newName = prompt('Введите новый никнейм (3-20 символов):');
         if (!newName || newName.length < 3) return alert('Ник должен быть от 3 символов');
@@ -462,11 +476,35 @@
             alert('Ошибка: ' + data.error);
         }
     };
-    // СМЕНА АВАТАРА (заглушка)
     document.getElementById('changeAvatarBtn').onclick = () => {
-        alert('Загрузка аватара будет добавлена позже. Пока можно использовать стандартный.');
+        alert('Загрузка аватара будет добавлена позже.');
     };
-    document.getElementById('plusBtn').onclick = () => alert('⭐ Kinders+ скоро появится!');
+    
+    // Кнопка покупки Kinders+
+    document.getElementById('plusBtn').onclick = async () => {
+        const plan = prompt('Выберите тариф:\n1 - 1 неделя (79₽)\n2 - 1 месяц (199₽)\n3 - 1 год (690₽)');
+        let selected = '';
+        if (plan === '1') selected = 'week';
+        else if (plan === '2') selected = 'month';
+        else if (plan === '3') selected = 'year';
+        else return;
+        try {
+            const res = await fetch('/create-payment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ plan: selected })
+            });
+            if (res.ok) {
+                const html = await res.text();
+                document.body.insertAdjacentHTML('beforeend', html);
+                // форма сама отправится
+            } else {
+                alert('Ошибка создания платежа');
+            }
+        } catch(e) {
+            alert('Ошибка соединения');
+        }
+    };
 
     // АДМИНКА
     async function loadAllUsers() {
