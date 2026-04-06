@@ -1,0 +1,236 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: linear-gradient(135deg, #f5a623 0%, #f7d794 100%);
+    min-height: 100vh;
+}
+
+.auth-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.auth-card {
+    background: white;
+    padding: 40px;
+    border-radius: 30px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+    width: 100%;
+    max-width: 400px;
+    text-align: center;
+}
+
+.auth-card h1 {
+    margin-bottom: 10px;
+    color: #e67e22;
+    font-size: 2em;
+}
+
+.auth-card p {
+    color: #666;
+    margin-bottom: 30px;
+}
+
+.auth-card input {
+    width: 100%;
+    padding: 14px;
+    margin: 10px 0;
+    border: 2px solid #f0f0f0;
+    border-radius: 50px;
+    font-size: 16px;
+    transition: 0.3s;
+}
+
+.auth-card input:focus {
+    outline: none;
+    border-color: #f5a623;
+}
+
+.auth-card button {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, #f5a623 0%, #e67e22 100%);
+    color: white;
+    border: none;
+    border-radius: 50px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 10px;
+    transition: 0.3s;
+}
+
+.auth-card button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 20px rgba(229, 126, 34, 0.4);
+}
+
+.auth-link {
+    margin-top: 20px;
+    font-size: 14px;
+}
+
+.auth-link a {
+    color: #e67e22;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.error-msg {
+    color: #e74c3c;
+    margin-top: 15px;
+    font-size: 14px;
+}
+
+.chat-container {
+    max-width: 900px;
+    margin: 20px auto;
+    background: white;
+    border-radius: 30px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+    height: calc(100vh - 40px);
+    display: flex;
+    flex-direction: column;
+}
+
+.chat-header {
+    background: linear-gradient(135deg, #f5a623 0%, #e67e22 100%);
+    color: white;
+    padding: 20px 25px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.chat-header h2 {
+    font-size: 1.3em;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.logout-btn {
+    background: rgba(255,255,255,0.2);
+    border: none;
+    color: white;
+    padding: 8px 18px;
+    border-radius: 50px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: 0.3s;
+}
+
+.logout-btn:hover {
+    background: rgba(255,255,255,0.3);
+}
+
+.chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    background: #fef9f0;
+}
+
+.message {
+    background: white;
+    padding: 12px 18px;
+    border-radius: 18px;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    max-width: 80%;
+}
+
+.message-user {
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.message-time {
+    font-size: 10px;
+    color: #aaa;
+    margin-left: 10px;
+}
+
+.message-text {
+    margin-top: 6px;
+    color: #333;
+    word-wrap: break-word;
+    font-size: 15px;
+}
+
+.status-message {
+    text-align: center;
+    padding: 6px 12px;
+    margin: 10px auto;
+    border-radius: 50px;
+    font-size: 12px;
+    width: fit-content;
+    max-width: 80%;
+}
+
+.status-message.join {
+    background: #d5f5e3;
+    color: #27ae60;
+}
+
+.status-message.leave {
+    background: #fadbd8;
+    color: #e74c3c;
+}
+
+.welcome-msg {
+    text-align: center;
+    padding: 30px;
+    color: #f5a623;
+    font-size: 14px;
+}
+
+.chat-input-area {
+    padding: 20px;
+    background: white;
+    border-top: 1px solid #f0f0f0;
+    display: flex;
+    gap: 12px;
+}
+
+.chat-input-area input {
+    flex: 1;
+    padding: 14px 20px;
+    border: 2px solid #f0f0f0;
+    border-radius: 50px;
+    font-size: 15px;
+    transition: 0.3s;
+}
+
+.chat-input-area input:focus {
+    outline: none;
+    border-color: #f5a623;
+}
+
+.chat-input-area button {
+    padding: 14px 28px;
+    background: linear-gradient(135deg, #f5a623 0%, #e67e22 100%);
+    color: white;
+    border: none;
+    border-radius: 50px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.chat-input-area button:hover {
+    transform: scale(1.02);
+    box-shadow: 0 3px 10px rgba(229, 126, 34, 0.3);
+}
