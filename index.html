@@ -3,58 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kinders — Чат с друзьями</title>
+    <title>Kinders — Чат</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        /* Тёмная тема (луна) */
+        * { margin:0; padding:0; box-sizing:border-box; }
         body.dark {
             --bg-primary: #0f1117;
-            --bg-secondary: #1a1d24;
             --bg-card: #1e2229;
-            --bg-hover: #2a2f38;
             --bg-input: #15181e;
             --text-primary: #e8edf5;
-            --text-secondary: #9aa4bf;
             --border: #2a2f3a;
             --accent: #f5a623;
-            --accent-hover: #e67e22;
-            --danger: #ff6b6b;
-            --success: #6bdd8c;
-            --shadow: 0 8px 32px rgba(0,0,0,0.25);
             --divider: #2a2f3a;
         }
-
-        /* Светлая тема (солнце) */
         body.light {
             --bg-primary: #f5f7fc;
-            --bg-secondary: #ffffff;
             --bg-card: #ffffff;
-            --bg-hover: #f0f2f8;
             --bg-input: #f0f2f8;
             --text-primary: #2c2f36;
-            --text-secondary: #5e647a;
             --border: #e2e6ef;
             --accent: #f5a623;
-            --accent-hover: #e67e22;
-            --danger: #ff6b6b;
-            --success: #6bdd8c;
-            --shadow: 0 8px 28px rgba(0,0,0,0.06);
             --divider: #e2e6ef;
         }
-
         body {
             background: var(--bg-primary);
             color: var(--text-primary);
-            font-family: 'Inter', system-ui, sans-serif;
-            transition: background 0.3s, color 0.2s;
+            font-family: system-ui, sans-serif;
+            transition: background 0.3s;
         }
-
-        /* Шапка */
         .header {
             display: flex;
             justify-content: space-between;
@@ -65,43 +40,10 @@
             flex-wrap: wrap;
             gap: 15px;
         }
-        .logo {
-            font-size: 28px;
-            font-weight: bold;
-            color: var(--accent);
-        }
-        .user-area {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-        }
-        .username {
-            font-weight: 600;
-        }
-        .theme-btn {
-            background: var(--bg-hover);
-            border: none;
-            padding: 8px 16px;
-            border-radius: 30px;
-            cursor: pointer;
-            color: var(--text-primary);
-            font-size: 18px;
-            transition: 0.2s;
-        }
-        .theme-btn:hover {
-            transform: scale(1.05);
-        }
-        .logout-btn {
-            background: var(--danger);
-            border: none;
-            padding: 8px 18px;
-            border-radius: 30px;
-            cursor: pointer;
-            color: white;
-            font-weight: bold;
-        }
-
-        /* Основная сетка: две колонки */
+        .logo { font-size: 28px; font-weight: bold; color: var(--accent); }
+        .user-area { display: flex; gap: 20px; align-items: center; }
+        .theme-btn, .logout-btn { background: var(--bg-input); border: none; padding: 8px 16px; border-radius: 30px; cursor: pointer; }
+        .logout-btn { background: #ff6b6b; color: white; }
         .main-grid {
             display: grid;
             grid-template-columns: 320px 1fr;
@@ -109,9 +51,9 @@
             max-width: 1400px;
             margin: 20px auto;
             padding: 0 20px;
+            animation: fadeIn 0.6s ease-out;
         }
-
-        /* Левая панель */
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         .friends-panel {
             background: var(--bg-card);
             border-radius: 28px;
@@ -119,80 +61,9 @@
             border: 1px solid var(--border);
             height: calc(100vh - 100px);
             overflow-y: auto;
+            animation: slideFromLeft 0.5s;
         }
-        .panel-title {
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: var(--text-secondary);
-            margin: 16px 0 12px 0;
-            font-weight: 600;
-        }
-        /* Разделитель между блоками */
-        .divider {
-            height: 1px;
-            background: var(--divider);
-            margin: 16px 0;
-        }
-        .search-box {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-        .search-box input {
-            flex: 1;
-            padding: 10px 14px;
-            background: var(--bg-input);
-            border: 1px solid var(--border);
-            border-radius: 20px;
-            color: var(--text-primary);
-        }
-        .search-box button {
-            background: var(--accent);
-            border: none;
-            padding: 10px 16px;
-            border-radius: 20px;
-            cursor: pointer;
-            font-weight: bold;
-            color: #1a1a2e;
-        }
-        .list {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-        .list-item {
-            background: var(--bg-input);
-            border-radius: 16px;
-            padding: 12px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-        .list-item:hover {
-            background: var(--bg-hover);
-            transform: translateX(4px);
-        }
-        .friend-name {
-            font-weight: 600;
-        }
-        .friend-tag {
-            font-size: 11px;
-            color: var(--text-secondary);
-        }
-        .btn-small {
-            padding: 4px 12px;
-            border-radius: 20px;
-            border: none;
-            cursor: pointer;
-            font-size: 12px;
-        }
-        .btn-success { background: var(--success); color: #1a1a2e; }
-        .btn-danger { background: var(--danger); color: white; }
-
-        /* Центральный чат */
+        @keyframes slideFromLeft { from { opacity: 0; transform: translateX(-60px); } to { opacity: 1; transform: translateX(0); } }
         .chat-area {
             background: var(--bg-card);
             border-radius: 28px;
@@ -200,493 +71,294 @@
             display: flex;
             flex-direction: column;
             height: calc(100vh - 100px);
+            animation: slideFromBottom 0.5s;
         }
-        .chat-header {
-            padding: 16px 20px;
-            border-bottom: 1px solid var(--border);
-            font-weight: bold;
-        }
-        .messages {
-            flex: 1;
-            overflow-y: auto;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-        .message {
-            max-width: 70%;
-            padding: 10px 18px;
-            border-radius: 24px;
-            word-wrap: break-word;
-        }
-        .message-own {
-            align-self: flex-end;
-            background: var(--accent);
-            color: white;
-            border-bottom-right-radius: 6px;
-        }
-        .message-other {
-            align-self: flex-start;
+        @keyframes slideFromBottom { from { opacity: 0; transform: translateY(60px); } to { opacity: 1; transform: translateY(0); } }
+        .panel-title { font-size: 12px; text-transform: uppercase; margin: 16px 0 12px; color: #9aa4bf; }
+        .divider { height: 1px; background: var(--divider); margin: 16px 0; }
+        .search-box { display: flex; gap: 10px; margin-bottom: 20px; }
+        .search-box input { flex:1; padding: 10px; background: var(--bg-input); border:1px solid var(--border); border-radius:20px; color: var(--text-primary); }
+        .search-box button { background: var(--accent); border:none; padding:10px 16px; border-radius:20px; cursor:pointer; }
+        .list-item {
             background: var(--bg-input);
-            border-bottom-left-radius: 6px;
-        }
-        .message-time {
-            font-size: 10px;
-            margin-top: 4px;
-            opacity: 0.7;
-        }
-        .input-area {
+            border-radius: 16px;
+            padding: 12px;
+            margin-bottom: 8px;
             display: flex;
-            gap: 12px;
-            padding: 16px 20px;
-            border-top: 1px solid var(--border);
-        }
-        .input-area input {
-            flex: 1;
-            padding: 12px 16px;
-            background: var(--bg-input);
-            border: 1px solid var(--border);
-            border-radius: 30px;
-            color: var(--text-primary);
-        }
-        .input-area button {
-            background: var(--accent);
-            border: none;
-            padding: 12px 24px;
-            border-radius: 30px;
-            font-weight: bold;
+            justify-content: space-between;
+            align-items: center;
             cursor: pointer;
-            color: #1a1a2e;
+            transition: 0.2s;
         }
+        .list-item:hover { background: var(--border); transform: translateX(4px); }
+        .btn-small { padding: 4px 12px; border-radius: 20px; border: none; cursor: pointer; font-size: 12px; }
+        .btn-success { background: #6bdd8c; color: #1a1a2e; }
+        .btn-danger { background: #ff6b6b; color: white; }
+        .chat-header { padding: 16px 20px; border-bottom: 1px solid var(--border); font-weight: bold; }
+        .messages { flex:1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+        .message { max-width: 70%; padding: 10px 18px; border-radius: 24px; }
+        .message-own { align-self: flex-end; background: var(--accent); color: white; border-bottom-right-radius: 6px; }
+        .message-other { align-self: flex-start; background: var(--bg-input); border-bottom-left-radius: 6px; }
+        .input-area { display: flex; gap: 12px; padding: 16px 20px; border-top: 1px solid var(--border); }
+        .input-area input { flex:1; padding: 12px; background: var(--bg-input); border:1px solid var(--border); border-radius:30px; color: var(--text-primary); }
+        .input-area button { background: var(--accent); border:none; padding:12px 24px; border-radius:30px; cursor:pointer; }
         .hidden { display: none; }
-        .error { color: var(--danger); }
-        .success { color: var(--success); }
+        .error { color: #ff6b6b; }
         .text-center { text-align: center; }
-        .mt-2 { margin-top: 8px; }
-
-        @media (max-width: 700px) {
-            .main-grid { grid-template-columns: 1fr; }
-            .friends-panel { height: auto; max-height: 350px; }
-        }
+        @media (max-width:700px) { .main-grid { grid-template-columns: 1fr; } .friends-panel { height: auto; max-height: 350px; } }
     </style>
 </head>
 <body class="dark">
 <div class="header">
     <div class="logo">🐻 Kinders</div>
     <div class="user-area">
-        <span class="username" id="currentUsername"></span>
-        <button class="theme-btn" id="themeSun" title="Светлая тема">☀️</button>
-        <button class="theme-btn" id="themeMoon" title="Тёмная тема">🌙</button>
+        <span id="currentUsername"></span>
+        <button class="theme-btn" id="themeSun">☀️</button>
+        <button class="theme-btn" id="themeMoon">🌙</button>
         <button class="logout-btn" id="logoutBtn">Выйти</button>
     </div>
 </div>
-
 <div class="main-grid">
-    <!-- Левая панель: друзья, запросы, группы -->
     <div class="friends-panel">
-        <div class="search-box">
-            <input type="text" id="searchInput" placeholder="Поиск друзей...">
-            <button id="searchBtn">Найти</button>
-        </div>
+        <div class="search-box"><input id="searchInput" placeholder="Поиск друзей..."><button id="searchBtn">Найти</button></div>
         <div id="searchResults" class="list"></div>
-
         <div class="divider"></div>
-
         <div class="panel-title">📨 ЗАПРОСЫ В ДРУЗЬЯ</div>
         <div id="requestsList" class="list"></div>
-
         <div class="divider"></div>
-
         <div class="panel-title">👥 ДРУЗЬЯ</div>
         <div id="friendsList" class="list"></div>
-
         <div class="divider"></div>
-
         <div class="panel-title">💬 ГРУППЫ</div>
-        <button id="createGroupBtn" style="width:100%; margin-bottom:12px; background:var(--accent); border:none; padding:8px; border-radius:20px; font-weight:bold; color:#1a1a2e;">➕ Создать группу</button>
+        <button id="createGroupBtn" style="width:100%; margin-bottom:12px; background:var(--accent); border:none; padding:8px; border-radius:20px;">➕ Создать группу</button>
         <div id="groupsList" class="list"></div>
-
-        <!-- Админ панель (видна только prisanok) -->
         <div id="adminPanel" class="hidden" style="margin-top:20px;">
             <div class="divider"></div>
-            <div class="panel-title">👑 АДМИН</div>
-            <button id="allUsersBtn" style="width:100%; background:var(--danger); border:none; padding:8px; border-radius:20px; color:white;">Все пользователи</button>
+            <div class="panel-title">👑 АДМИН ПАНЕЛЬ</div>
+            <button id="allUsersBtn" style="width:100%; background:#ff6b6b; border:none; padding:8px; border-radius:20px;">Показать пользователей</button>
             <div id="usersList" class="list hidden mt-2"></div>
         </div>
     </div>
-
-    <!-- Центральный чат -->
     <div class="chat-area">
         <div class="chat-header" id="chatTitle">💬 Выберите друга или группу</div>
-        <div id="messages" class="messages">
-            <div class="text-center" style="margin-top:40px;">👈 Нажмите на друга, чтобы начать общение</div>
-        </div>
-        <div class="input-area">
-            <input type="text" id="messageInput" placeholder="Сообщение..." autocomplete="off">
-            <button id="sendMsgBtn">Отправить</button>
-        </div>
+        <div id="messages" class="messages"><div class="text-center" style="margin-top:40px;">👈 Нажмите на друга</div></div>
+        <div class="input-area"><input id="messageInput" placeholder="Сообщение..."><button id="sendMsgBtn">Отправить</button></div>
     </div>
 </div>
-
 <script src="/socket.io/socket.io.js"></script>
 <script>
-    // ============ ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ============
-    let currentUser = null;
-    let currentChatType = null; // 'private' или 'group'
-    let currentChatId = null;
-    let socket = null;
-
-    // ============ ТЕМА (солнце / луна) ============
+    let currentUser = null, currentChatType = null, currentChatId = null, socket = null;
     function setTheme(theme) {
-        if (theme === 'light') {
-            document.body.classList.remove('dark');
-            document.body.classList.add('light');
-            localStorage.setItem('theme', 'light');
-        } else {
-            document.body.classList.remove('light');
-            document.body.classList.add('dark');
-            localStorage.setItem('theme', 'dark');
-        }
+        if(theme==='light'){ document.body.classList.remove('dark'); document.body.classList.add('light'); localStorage.setItem('theme','light'); }
+        else { document.body.classList.remove('light'); document.body.classList.add('dark'); localStorage.setItem('theme','dark'); }
     }
-    const savedTheme = localStorage.getItem('theme') || 'dark';
-    setTheme(savedTheme);
-    document.getElementById('themeSun').onclick = () => setTheme('light');
-    document.getElementById('themeMoon').onclick = () => setTheme('dark');
+    setTheme(localStorage.getItem('theme')||'dark');
+    document.getElementById('themeSun').onclick=()=>setTheme('light');
+    document.getElementById('themeMoon').onclick=()=>setTheme('dark');
 
-    // ============ СОКЕТ ============
+    async function checkSession() {
+        const res=await fetch('/session');
+        const data=await res.json();
+        if(data.success && data.user) {
+            currentUser=data.user;
+            document.getElementById('currentUsername').innerText=currentUser.username;
+            initSocket();
+            loadFriends();
+            loadRequests();
+            loadGroups();
+            if(currentUser.username==='prisanok') document.getElementById('adminPanel').classList.remove('hidden');
+        } else window.location.href='login.html';
+    }
     function initSocket() {
-        socket = io();
-        socket.on('connect', () => {
-            if (currentUser) socket.emit('register', currentUser.id);
+        socket=io();
+        socket.on('connect',()=>{ if(currentUser) socket.emit('register',currentUser.id); });
+        socket.on('private-message',(data)=>{
+            if(currentChatType==='private' && currentChatId===data.from) appendMessage(data.msg,false,data.time);
+            else showNotification(data.fromName,data.msg);
+            loadFriends();
         });
-        socket.on('private-message', (data) => {
-            if (currentChatType === 'private' && currentChatId === data.from) {
-                appendMessage(data.msg, false, data.time);
-            } else {
-                showNotification(data.fromName || 'Друг', data.msg);
-            }
-            loadFriends(); // обновляем список (например, статусы)
-        });
-        socket.on('group-message', (data) => {
-            if (currentChatType === 'group' && currentChatId === data.group) {
-                appendMessage(data.msg, false, data.time);
-            } else {
-                showNotification(data.groupName || 'Группа', data.msg);
-            }
+        socket.on('group-message',(data)=>{
+            if(currentChatType==='group' && currentChatId===data.group) appendMessage(data.msg,false,data.time);
+            else showNotification(data.groupName||'Группа',data.msg);
         });
     }
-
-    function appendMessage(text, isOwn, time) {
-        const container = document.getElementById('messages');
-        const div = document.createElement('div');
-        div.className = `message ${isOwn ? 'message-own' : 'message-other'}`;
-        div.innerHTML = `${escapeHtml(text)}<div class="message-time">${new Date(time).toLocaleTimeString()}</div>`;
-        container.appendChild(div);
-        container.scrollTop = container.scrollHeight;
+    function appendMessage(text,isOwn,time){
+        const div=document.createElement('div');
+        div.className=`message ${isOwn?'message-own':'message-other'}`;
+        div.innerHTML=`${escapeHtml(text)}<div class="message-time">${new Date(time).toLocaleTimeString()}</div>`;
+        document.getElementById('messages').appendChild(div);
+        div.scrollIntoView();
     }
-
-    function showNotification(sender, msg) {
-        const notif = document.createElement('div');
-        notif.className = 'message message-other';
-        notif.style.position = 'fixed';
-        notif.style.bottom = '20px';
-        notif.style.right = '20px';
-        notif.style.maxWidth = '250px';
-        notif.style.zIndex = '999';
-        notif.innerHTML = `<strong>${escapeHtml(sender)}</strong><br>${escapeHtml(msg.substring(0, 50))}`;
-        document.body.appendChild(notif);
-        setTimeout(() => notif.remove(), 3000);
+    function showNotification(sender,msg){
+        const n=document.createElement('div');
+        n.className='message message-other';
+        n.style.position='fixed'; n.style.bottom='20px'; n.style.right='20px'; n.style.maxWidth='250px'; n.style.zIndex='999';
+        n.innerHTML=`<strong>${escapeHtml(sender)}</strong><br>${escapeHtml(msg.substring(0,50))}`;
+        document.body.appendChild(n);
+        setTimeout(()=>n.remove(),3000);
     }
-
-    // ============ ЗАГРУЗКА ДРУЗЕЙ, ЗАПРОСОВ, ГРУПП ============
-    async function loadFriends() {
-        const res = await fetch('/friends', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: currentUser.id })
-        });
-        const data = await res.json();
-        const container = document.getElementById('friendsList');
-        container.innerHTML = '';
-        (data.friends || []).forEach(f => {
-            const div = document.createElement('div');
-            div.className = 'list-item';
-            div.onclick = () => {
-                currentChatType = 'private';
-                currentChatId = f.id;
-                document.getElementById('chatTitle').innerHTML = `💬 Чат с ${escapeHtml(f.username)}`;
-                loadPrivateMessages();
-            };
-            div.innerHTML = `<div><div class="friend-name">${escapeHtml(f.username)}</div><div class="friend-tag">#${f.tag}</div></div>`;
+    async function loadFriends(){
+        const res=await fetch('/friends',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
+        const data=await res.json();
+        const container=document.getElementById('friendsList');
+        container.innerHTML='';
+        data.friends.forEach(f=>{
+            const div=document.createElement('div');
+            div.className='list-item';
+            div.onclick=()=>{ currentChatType='private'; currentChatId=f.id; document.getElementById('chatTitle').innerHTML=`💬 Чат с ${escapeHtml(f.username)}`; loadPrivateMessages(); };
+            div.innerHTML=`<div><div class="friend-name">${escapeHtml(f.username)}</div><div class="friend-tag">#${f.tag}</div></div>`;
             container.appendChild(div);
         });
     }
-
-    async function loadRequests() {
-        const res = await fetch('/requests', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: currentUser.id })
-        });
-        const data = await res.json();
-        const container = document.getElementById('requestsList');
-        container.innerHTML = '';
-        (data.requests || []).forEach(req => {
-            const div = document.createElement('div');
-            div.className = 'list-item';
-            div.innerHTML = `<span>${escapeHtml(req.username)}#${req.tag}</span>
-                             <div>
-                                 <button class="btn-small btn-success" onclick="acceptReq(${req.id}, ${req.user_id})">✅</button>
-                                 <button class="btn-small btn-danger" onclick="declineReq(${req.id})">❌</button>
-                             </div>`;
+    async function loadRequests(){
+        const res=await fetch('/requests',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
+        const data=await res.json();
+        const container=document.getElementById('requestsList');
+        container.innerHTML='';
+        data.requests.forEach(r=>{
+            const div=document.createElement('div');
+            div.className='list-item';
+            div.innerHTML=`<span>${escapeHtml(r.username)}#${r.tag}</span><div><button class="btn-small btn-success" onclick="acceptReq(${r.id})">✅</button><button class="btn-small btn-danger" onclick="declineReq(${r.id})">❌</button></div>`;
             container.appendChild(div);
         });
     }
-
-    async function loadGroups() {
-        const res = await fetch('/groups', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: currentUser.id })
-        });
-        const data = await res.json();
-        const container = document.getElementById('groupsList');
-        container.innerHTML = '';
-        (data.groups || []).forEach(g => {
-            const div = document.createElement('div');
-            div.className = 'list-item';
-            div.onclick = () => {
-                currentChatType = 'group';
-                currentChatId = g.id;
-                document.getElementById('chatTitle').innerHTML = `💬 Группа: ${escapeHtml(g.name)}`;
-                loadGroupMessages();
-            };
-            div.innerHTML = `<div class="friend-name">${escapeHtml(g.name)}</div>`;
+    async function loadGroups(){
+        const res=await fetch('/groups',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
+        const data=await res.json();
+        const container=document.getElementById('groupsList');
+        container.innerHTML='';
+        data.groups.forEach(g=>{
+            const div=document.createElement('div');
+            div.className='list-item';
+            div.onclick=()=>{ currentChatType='group'; currentChatId=g.id; document.getElementById('chatTitle').innerHTML=`💬 Группа: ${escapeHtml(g.name)}`; loadGroupMessages(); };
+            div.innerHTML=`<div class="friend-name">${escapeHtml(g.name)}</div>`;
             container.appendChild(div);
         });
     }
-
-    async function loadPrivateMessages() {
-        if (!currentChatId) return;
-        const res = await fetch('/messages', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ u1: currentUser.id, u2: currentChatId })
-        });
-        const data = await res.json();
-        const container = document.getElementById('messages');
-        container.innerHTML = '';
-        (data.messages || []).forEach(m => {
-            const isOwn = m.from_user_id === currentUser.id;
-            const div = document.createElement('div');
-            div.className = `message ${isOwn ? 'message-own' : 'message-other'}`;
-            div.innerHTML = `${escapeHtml(m.message)}<div class="message-time">${new Date(m.timestamp).toLocaleTimeString()}</div>`;
+    async function loadPrivateMessages(){
+        if(!currentChatId) return;
+        const res=await fetch('/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({u2:currentChatId})});
+        const data=await res.json();
+        const container=document.getElementById('messages');
+        container.innerHTML='';
+        data.messages.forEach(m=>{
+            const isOwn=m.from_user_id===currentUser.id;
+            const div=document.createElement('div');
+            div.className=`message ${isOwn?'message-own':'message-other'}`;
+            div.innerHTML=`${escapeHtml(m.message)}<div class="message-time">${new Date(m.timestamp).toLocaleTimeString()}</div>`;
             container.appendChild(div);
         });
-        container.scrollTop = container.scrollHeight;
+        container.scrollTop=container.scrollHeight;
     }
-
-    async function loadGroupMessages() {
-        if (!currentChatId) return;
-        const res = await fetch('/group/messages', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ groupId: currentChatId })
-        });
-        const data = await res.json();
-        const container = document.getElementById('messages');
-        container.innerHTML = '';
-        (data.messages || []).forEach(m => {
-            const isOwn = m.from_user_id === currentUser.id;
-            const div = document.createElement('div');
-            div.className = `message ${isOwn ? 'message-own' : 'message-other'}`;
-            div.innerHTML = `<strong>${escapeHtml(m.fromName)}:</strong> ${escapeHtml(m.message)}<div class="message-time">${new Date(m.timestamp).toLocaleTimeString()}</div>`;
+    async function loadGroupMessages(){
+        if(!currentChatId) return;
+        const res=await fetch('/group/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({groupId:currentChatId})});
+        const data=await res.json();
+        const container=document.getElementById('messages');
+        container.innerHTML='';
+        data.messages.forEach(m=>{
+            const isOwn=m.from_user_id===currentUser.id;
+            const div=document.createElement('div');
+            div.className=`message ${isOwn?'message-own':'message-other'}`;
+            div.innerHTML=`<strong>${escapeHtml(m.fromName)}:</strong> ${escapeHtml(m.message)}<div class="message-time">${new Date(m.timestamp).toLocaleTimeString()}</div>`;
             container.appendChild(div);
         });
-        container.scrollTop = container.scrollHeight;
+        container.scrollTop=container.scrollHeight;
     }
-
-    async function sendMessage() {
-        const msg = document.getElementById('messageInput').value.trim();
-        if (!msg || !currentChatId) return;
-        if (currentChatType === 'private') {
-            appendMessage(msg, true, new Date());
-            socket.emit('private-message', { from: currentUser.id, to: currentChatId, msg, fromName: currentUser.username });
-            await fetch('/send-message', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ from_user_id: currentUser.id, to_user_id: currentChatId, message: msg })
-            });
-        } else if (currentChatType === 'group') {
-            appendMessage(msg, true, new Date());
-            socket.emit('group-message', { group: currentChatId, from: currentUser.id, fromName: currentUser.username, msg });
-            await fetch('/group/send-message', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ group_id: currentChatId, from_user_id: currentUser.id, message: msg })
-            });
+    async function sendMessage(){
+        const msg=document.getElementById('messageInput').value.trim();
+        if(!msg||!currentChatId) return;
+        if(currentChatType==='private'){
+            appendMessage(msg,true,new Date());
+            socket.emit('private-message',{from:currentUser.id,to:currentChatId,msg,fromName:currentUser.username});
+            await fetch('/send-message',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to_user_id:currentChatId,message:msg})});
+        } else if(currentChatType==='group'){
+            appendMessage(msg,true,new Date());
+            socket.emit('group-message',{group:currentChatId,from:currentUser.id,fromName:currentUser.username,msg});
+            await fetch('/group/send-message',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({group_id:currentChatId,message:msg})});
         }
-        document.getElementById('messageInput').value = '';
+        document.getElementById('messageInput').value='';
     }
-
-    // ============ ПОИСК ============
-    document.getElementById('searchBtn').onclick = async () => {
-        const query = document.getElementById('searchInput').value;
-        if (!query) return;
-        const res = await fetch('/search', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ q: query })
-        });
-        const data = await res.json();
-        const container = document.getElementById('searchResults');
-        if (data.isDiscord) {
-            window.open(`https://discord.com/users/${data.id}`, '_blank');
-            alert('Переход в Discord профиль создателя');
-            return;
-        }
-        container.innerHTML = '';
-        if (data.users && data.users.length) {
-            data.users.forEach(u => {
-                const div = document.createElement('div');
-                div.className = 'list-item';
-                div.innerHTML = `<span>${escapeHtml(u.username)}#${u.tag}</span>
-                                <button class="btn-small btn-success" onclick="addFriend(${u.id})">➕</button>`;
+    document.getElementById('searchBtn').onclick=async()=>{
+        const q=document.getElementById('searchInput').value;
+        if(!q) return;
+        const res=await fetch('/search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({q})});
+        const data=await res.json();
+        const container=document.getElementById('searchResults');
+        container.innerHTML='';
+        if(data.users.length){
+            data.users.forEach(u=>{
+                const div=document.createElement('div');
+                div.className='list-item';
+                div.innerHTML=`<span>${escapeHtml(u.username)}#${u.tag}</span><button class="btn-small btn-success" onclick="addFriend(${u.id})">➕</button>`;
                 container.appendChild(div);
             });
-        } else {
-            container.innerHTML = '<span class="error">❌ Не найден</span>';
-        }
+        } else container.innerHTML='<span class="error">❌ Не найден</span>';
     };
-
-    async function addFriend(id) {
-        const res = await fetch('/friend/add', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ from: currentUser.id, to: id })
-        });
-        const data = await res.json();
-        if (data.success) {
-            document.getElementById('searchResults').innerHTML = '<span class="success">✅ Запрос отправлен</span>';
-            loadRequests();
-        } else {
-            alert('❌ ' + data.error);
-        }
-    }
-
-    window.acceptReq = async (id, fromId) => {
-        await fetch('/friend/accept', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id, from: fromId, to: currentUser.id })
-        });
-        loadFriends();
-        loadRequests();
+    window.addFriend=async(id)=>{
+        const res=await fetch('/friend/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to:id})});
+        const data=await res.json();
+        if(data.success){ document.getElementById('searchResults').innerHTML='<span class="success">✅ Запрос отправлен</span>'; loadRequests(); }
+        else alert('❌ '+data.error);
     };
-    window.declineReq = async (id) => {
-        await fetch('/friend/decline', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id })
-        });
-        loadRequests();
+    window.acceptReq=async(id)=>{ await fetch('/friend/accept',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})}); loadFriends(); loadRequests(); };
+    window.declineReq=async(id)=>{ await fetch('/friend/decline',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})}); loadRequests(); };
+    document.getElementById('createGroupBtn').onclick=async()=>{
+        const res=await fetch('/friends',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
+        const data=await res.json();
+        if(data.friends.length<2){ alert('❌ Нужно минимум 2 друга'); return; }
+        const name=prompt('Название группы:'); if(!name) return;
+        const members=data.friends.slice(0,2).map(f=>f.id);
+        const createRes=await fetch('/group/create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,members})});
+        const createData=await createRes.json();
+        if(createData.success){ alert('✅ Группа создана!'); loadGroups(); }
+        else alert('❌ Ошибка');
     };
+    document.getElementById('logoutBtn').onclick=async()=>{ await fetch('/logout',{method:'POST'}); window.location.href='login.html'; };
+    document.getElementById('sendMsgBtn').onclick=sendMessage;
+    document.getElementById('messageInput').addEventListener('keypress',(e)=>{ if(e.key==='Enter') sendMessage(); });
 
-    // ============ СОЗДАНИЕ ГРУППЫ (требует минимум 2 друзей) ============
-    document.getElementById('createGroupBtn').onclick = async () => {
-        // Получаем список друзей
-        const res = await fetch('/friends', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: currentUser.id })
-        });
-        const data = await res.json();
-        const friends = data.friends || [];
-        if (friends.length < 2) {
-            alert('❌ Для создания группы нужно минимум 2 друга! Добавьте ещё друзей.');
-            return;
-        }
-        const name = prompt('Название группы:');
-        if (!name) return;
-        // Берём первых двух друзей (можно улучшить, но для простоты так)
-        const members = [currentUser.id, friends[0].id, friends[1].id];
-        const createRes = await fetch('/group/create', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, owner: currentUser.id, members })
-        });
-        const createData = await createRes.json();
-        if (createData.success) {
-            alert('✅ Группа создана!');
-            loadGroups();
-        } else {
-            alert('❌ Ошибка: ' + createData.error);
-        }
-    };
-
-    // ============ АДМИН ПАНЕЛЬ (только для prisanok) ============
-    async function loadAdmin() {
-        if (currentUser.username === 'prisanok') {
-            document.getElementById('adminPanel').classList.remove('hidden');
-        }
-    }
+    // Админ-панель: показать пользователей, бан/разбан
     async function loadAllUsers() {
         const res = await fetch('/all-users');
         const data = await res.json();
         const container = document.getElementById('usersList');
         container.innerHTML = '';
-        (data.users || []).forEach(u => {
-            const div = document.createElement('div');
-            div.className = 'list-item';
-            div.innerHTML = `<span>${escapeHtml(u.username)}#${u.tag}</span>
-                            <button class="btn-small btn-danger" onclick="ban(${u.id})">Бан</button>`;
-            container.appendChild(div);
-        });
+        if (!data.users.length) {
+            container.innerHTML = '<div class="list-item">Нет пользователей</div>';
+        } else {
+            data.users.forEach(u => {
+                const div = document.createElement('div');
+                div.className = 'list-item';
+                div.innerHTML = `<span>${escapeHtml(u.username)}#${u.tag}</span>
+                                <button class="btn-small btn-danger" data-id="${u.id}" data-action="ban">Бан</button>`;
+                const btn = div.querySelector('button');
+                btn.onclick = async (e) => {
+                    e.stopPropagation();
+                    if (btn.innerText === 'Бан') {
+                        await fetch('/ban', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: u.id }) });
+                        btn.innerText = 'Разбан';
+                        btn.classList.remove('btn-danger');
+                        btn.classList.add('btn-success');
+                    } else {
+                        await fetch('/unban', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: u.id }) });
+                        btn.innerText = 'Бан';
+                        btn.classList.remove('btn-success');
+                        btn.classList.add('btn-danger');
+                    }
+                };
+                container.appendChild(div);
+            });
+        }
         container.classList.remove('hidden');
     }
-    window.ban = async (id) => {
-        const reason = prompt('Причина бана:');
-        if (!reason) return;
-        await fetch('/ban', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: id, reason }) });
-        loadAllUsers();
-    };
     document.getElementById('allUsersBtn').onclick = () => {
-        if (document.getElementById('usersList').classList.contains('hidden')) loadAllUsers();
-        else document.getElementById('usersList').classList.add('hidden');
+        const container = document.getElementById('usersList');
+        if (container.classList.contains('hidden')) loadAllUsers();
+        else container.classList.add('hidden');
     };
 
-    // ============ АВТОРИЗАЦИЯ ============
-    async function checkSession() {
-        const res = await fetch('/session');
-        const data = await res.json();
-        if (data.success && data.user) {
-            currentUser = data.user;
-            document.getElementById('currentUsername').innerText = currentUser.username;
-            initSocket();
-            loadFriends();
-            loadRequests();
-            loadGroups();
-            loadAdmin();
-        } else {
-            window.location.href = 'login.html';
-        }
-    }
-
-    document.getElementById('logoutBtn').onclick = async () => {
-        await fetch('/logout', { method: 'POST' });
-        window.location.href = 'login.html';
-    };
-    document.getElementById('sendMsgBtn').onclick = sendMessage;
-    document.getElementById('messageInput').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') sendMessage();
-    });
-
-    function escapeHtml(str) {
-        if (!str) return '';
-        return str.replace(/[&<>]/g, m => m === '&' ? '&amp;' : (m === '<' ? '&lt;' : '&gt;'));
-    }
-
+    function escapeHtml(str){ if(!str) return ''; return str.replace(/[&<>]/g,m=> m==='&'?'&amp;': m==='<'?'&lt;':'&gt;'); }
     checkSession();
 </script>
 </body>
