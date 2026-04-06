@@ -99,7 +99,6 @@
 </div>
 
 <div class="main-grid">
-    <!-- ЛЕВАЯ КОЛОНКА -->
     <div class="friends-panel">
         <div class="search-box"><input id="searchInput" placeholder="Поиск друзей..."><button id="searchBtn">Найти</button></div>
         <div id="searchResults" class="list"></div>
@@ -121,7 +120,6 @@
         </div>
     </div>
 
-    <!-- ЦЕНТР: ЧАТ -->
     <div class="chat-area">
         <div class="chat-header">
             <span id="chatTitle">💬 Выберите друга или группу</span>
@@ -131,7 +129,6 @@
         <div class="input-area"><input id="messageInput" placeholder="Сообщение..."><button id="sendMsgBtn">Отправить</button></div>
     </div>
 
-    <!-- ПРАВАЯ КОЛОНКА: ПРОФИЛЬ -->
     <div class="profile-panel">
         <div class="profile-header">
             <div class="profile-avatar" id="profileAvatar">👤</div>
@@ -145,10 +142,11 @@
             <div class="stat"><div class="stat-value" id="regDate">—</div><div class="stat-label">регистрация</div></div>
         </div>
         <button class="profile-btn profile-btn-primary" id="changeUsernameBtn">✏️ Сменить ник</button>
+        <button class="profile-btn profile-btn-secondary" id="uploadAvatarBtn">🖼️ Загрузить аватар</button>
         <div id="premiumSettingsBlock" class="hidden">
+            <button class="profile-btn profile-btn-secondary" id="uploadGifAvatarBtn">🎬 Загрузить GIF-аватар (Plus)</button>
+            <button class="profile-btn profile-btn-secondary" id="uploadVideoBannerBtn">🎥 Загрузить видео-баннер (Plus)</button>
             <button class="profile-btn profile-btn-secondary" id="changeNickColorBtn">🎨 Цвет ника (Plus)</button>
-            <button class="profile-btn profile-btn-secondary" id="setAnimatedAvatarBtn">🖼️ GIF-аватарка (Plus)</button>
-            <button class="profile-btn profile-btn-secondary" id="setVideoBannerBtn">🎥 Видео-баннер (Plus)</button>
             <button class="profile-btn profile-btn-secondary" id="selectBadgeBtn">🏷️ Выбрать значок (Plus)</button>
         </div>
         <button class="profile-btn profile-btn-plus" id="showPremiumModalBtn">💎 Kinders+</button>
@@ -156,7 +154,6 @@
     </div>
 </div>
 
-<!-- МОДАЛКА ВЫБОРА ТАРИФОВ -->
 <div id="premiumModal" class="modal">
     <div class="modal-content">
         <h3>✨ Kinders+ Premium ✨</h3>
@@ -170,7 +167,6 @@
     </div>
 </div>
 
-<!-- МОДАЛКА СОЗДАНИЯ ГРУППЫ -->
 <div id="createGroupModal" class="modal">
     <div class="modal-content">
         <h3>➕ Создать группу</h3>
@@ -182,7 +178,6 @@
     </div>
 </div>
 
-<!-- МОДАЛКА УПРАВЛЕНИЯ ГРУППОЙ (КИК) -->
 <div id="groupManageModal" class="modal">
     <div class="modal-content">
         <h3 id="groupManageTitle">Управление группой</h3>
@@ -191,7 +186,6 @@
     </div>
 </div>
 
-<!-- МОДАЛКА ЗВОНКА -->
 <div id="callModal" class="modal">
     <div class="modal-content call-modal">
         <h3 id="callStatus">Звонок...</h3>
@@ -204,30 +198,26 @@
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
-    // ============ ГЛОБАЛЬНЫЕ ============
     let currentUser = null, currentChatType = null, currentChatId = null, socket = null;
     let currentPremium = false, currentSettings = {};
-    // WebRTC
     let localStream = null, peerConnection = null, callActive = false, callTarget = null;
     const servers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
-    // ТЕМА
-    function setTheme(theme) {
-        if(theme==='light'){ document.body.classList.remove('dark'); document.body.classList.add('light'); localStorage.setItem('theme','light'); }
+    function setTheme(t) {
+        if(t==='light'){ document.body.classList.remove('dark'); document.body.classList.add('light'); localStorage.setItem('theme','light'); }
         else { document.body.classList.remove('light'); document.body.classList.add('dark'); localStorage.setItem('theme','dark'); }
     }
     setTheme(localStorage.getItem('theme')||'dark');
     document.getElementById('themeSun').onclick=()=>setTheme('light');
     document.getElementById('themeMoon').onclick=()=>setTheme('dark');
 
-    // СЕССИЯ
     async function checkSession() {
         const res=await fetch('/session');
         const data=await res.json();
         if(data.success && data.user) {
             currentUser=data.user;
-            currentPremium=data.isPremium || false;
-            currentSettings=data.settings || {};
+            currentPremium=data.isPremium;
+            currentSettings=data.settings||{};
             document.getElementById('currentUsername').innerText=currentUser.username;
             updateProfileUI();
             initSocket();
@@ -243,34 +233,27 @@
                     document.getElementById('currentUsername').style.color = currentSettings.nickColor;
                 }
                 if(currentSettings.animatedAvatar) {
-                    const avatarDiv = document.getElementById('profileAvatar');
-                    avatarDiv.innerHTML = `<video autoplay loop muted playsinline src="${currentSettings.animatedAvatar}" style="width:100%;height:100%;object-fit:cover;"></video>`;
+                    document.getElementById('profileAvatar').innerHTML = `<video autoplay loop muted playsinline src="${currentSettings.animatedAvatar}" style="width:100%;height:100%;object-fit:cover;"></video>`;
                 }
                 if(currentSettings.videoBanner) {
                     document.body.style.backgroundImage = `url(${currentSettings.videoBanner})`;
                     document.body.style.backgroundSize = 'cover';
                 }
                 if(currentSettings.plusBadge) {
-                    const badge = document.createElement('span');
-                    badge.className = 'premium-badge';
-                    badge.innerText = currentSettings.plusBadge;
-                    document.getElementById('profileName').appendChild(badge);
+                    let b = document.createElement('span');
+                    b.className = 'premium-badge';
+                    b.innerText = currentSettings.plusBadge;
+                    document.getElementById('profileName').appendChild(b);
                 }
             }
         } else window.location.href='login.html';
     }
-
     function updateProfileUI() {
         document.getElementById('profileName').innerText = currentUser.username;
         document.getElementById('profileTag').innerText = `#${currentUser.tag}`;
-        if(currentUser.created_at) {
-            const date = new Date(currentUser.created_at).toLocaleDateString();
-            document.getElementById('regDate').innerText = date;
-        }
+        if(currentUser.created_at) document.getElementById('regDate').innerText = new Date(currentUser.created_at).toLocaleDateString();
         if(currentUser.avatar) document.getElementById('profileAvatar').innerHTML = `<img src="${currentUser.avatar}">`;
     }
-
-    // WEBSOCKET + ЗВОНКИ
     function initSocket() {
         socket=io();
         socket.on('connect',()=>{ if(currentUser) socket.emit('register',currentUser.id); });
@@ -283,63 +266,41 @@
             if(currentChatType==='group' && currentChatId===data.group) appendMessage(data.msg,false,data.time);
             else showNotification(data.groupName||'Группа',data.msg);
         });
-        // Сигналы звонков
         socket.on('call-made', async (data) => {
-            if (callActive) return;
+            if(callActive) return;
             callTarget = data.from;
-            document.getElementById('callStatus').innerText = `Входящий звонок от ${data.fromName || 'пользователя'}...`;
+            document.getElementById('callStatus').innerText = `Входящий звонок от ${data.fromName||'пользователя'}...`;
             document.getElementById('acceptCallBtn').style.display = 'inline-block';
             document.getElementById('callModal').style.display = 'flex';
             window.currentOffer = data.offer;
         });
-        socket.on('call-answered', async (data) => {
-            if (peerConnection) {
-                await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-            }
-        });
-        socket.on('ice-candidate', async (data) => {
-            if (peerConnection) {
-                await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
-            }
-        });
-        socket.on('call-ended', () => {
-            endCall();
-            alert('Звонок завершён');
-        });
+        socket.on('call-answered', async (data) => { if(peerConnection) await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer)); });
+        socket.on('ice-candidate', async (data) => { if(peerConnection) await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate)); });
+        socket.on('call-ended', () => { endCall(); alert('Звонок завершён'); });
     }
-
     async function startCall(toUserId) {
-        if (callActive) return;
+        if(callActive) return;
         try {
             localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
             peerConnection = new RTCPeerConnection(servers);
-            localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-            peerConnection.onicecandidate = (event) => {
-                if (event.candidate) {
-                    socket.emit('ice-candidate', { to: toUserId, candidate: event.candidate });
-                }
-            };
+            localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream));
+            peerConnection.onicecandidate = (e) => { if(e.candidate) socket.emit('ice-candidate', { to: toUserId, candidate: e.candidate }); };
             const offer = await peerConnection.createOffer();
             await peerConnection.setLocalDescription(offer);
-            socket.emit('call-user', { to: toUserId, offer });
+            socket.emit('call-user', { to: toUserId, offer, fromName: currentUser.username });
             callActive = true;
             callTarget = toUserId;
             document.getElementById('callStatus').innerText = 'Звоним...';
             document.getElementById('acceptCallBtn').style.display = 'none';
             document.getElementById('callModal').style.display = 'flex';
-        } catch(e) { alert('Не удалось получить доступ к микрофону'); }
+        } catch(e) { alert('Нет доступа к микрофону'); }
     }
-
     async function acceptCall() {
         try {
             localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
             peerConnection = new RTCPeerConnection(servers);
-            localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-            peerConnection.onicecandidate = (event) => {
-                if (event.candidate) {
-                    socket.emit('ice-candidate', { to: callTarget, candidate: event.candidate });
-                }
-            };
+            localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream));
+            peerConnection.onicecandidate = (e) => { if(e.candidate) socket.emit('ice-candidate', { to: callTarget, candidate: e.candidate }); };
             await peerConnection.setRemoteDescription(new RTCSessionDescription(window.currentOffer));
             const answer = await peerConnection.createAnswer();
             await peerConnection.setLocalDescription(answer);
@@ -347,337 +308,353 @@
             callActive = true;
             document.getElementById('callStatus').innerText = 'Разговор...';
             document.getElementById('acceptCallBtn').style.display = 'none';
-        } catch(e) { alert('Ошибка ответа на звонок'); }
+        } catch(e) { alert('Ошибка'); }
     }
-
     function endCall() {
-        if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
-        if (peerConnection) { peerConnection.close(); peerConnection = null; }
-        callActive = false;
-        if (callTarget) socket.emit('end-call', { to: callTarget });
-        callTarget = null;
-        document.getElementById('callModal').style.display = 'none';
+        if(localStream) { localStream.getTracks().forEach(t=>t.stop()); localStream=null; }
+        if(peerConnection) { peerConnection.close(); peerConnection=null; }
+        callActive=false;
+        if(callTarget) socket.emit('end-call', { to: callTarget });
+        callTarget=null;
+        document.getElementById('callModal').style.display='none';
     }
-
-    function appendMessage(text,isOwn,time){
-        const div=document.createElement('div');
-        div.className=`message ${isOwn?'message-own':'message-other'}`;
-        div.innerHTML=`${escapeHtml(text)}<div class="message-time">${new Date(time).toLocaleTimeString()}</div>`;
-        document.getElementById('messages').appendChild(div);
-        div.scrollIntoView();
+    function appendMessage(t,isOwn,time){
+        let d=document.createElement('div');
+        d.className=`message ${isOwn?'message-own':'message-other'}`;
+        d.innerHTML=`${escapeHtml(t)}<div class="message-time">${new Date(time).toLocaleTimeString()}</div>`;
+        document.getElementById('messages').appendChild(d);
+        d.scrollIntoView();
     }
-    function showNotification(sender,msg){
-        const n=document.createElement('div');
+    function showNotification(s,m){
+        let n=document.createElement('div');
         n.className='message message-other';
         n.style.position='fixed'; n.style.bottom='20px'; n.style.right='20px'; n.style.maxWidth='250px'; n.style.zIndex='999';
-        n.innerHTML=`<strong>${escapeHtml(sender)}</strong><br>${escapeHtml(msg.substring(0,50))}`;
+        n.innerHTML=`<strong>${escapeHtml(s)}</strong><br>${escapeHtml(m.substring(0,50))}`;
         document.body.appendChild(n);
         setTimeout(()=>n.remove(),3000);
     }
-
-    // ДРУЗЬЯ
     async function loadFriends(){
-        const res=await fetch('/friends',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
-        const data=await res.json();
-        const container=document.getElementById('friendsList');
-        container.innerHTML='';
-        document.getElementById('friendsCount').innerText = data.friends.length;
-        document.getElementById('friendsLimit').innerHTML = `(${data.friends.length}/${data.maxFriends})`;
+        let res=await fetch('/friends',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
+        let data=await res.json();
+        let c=document.getElementById('friendsList');
+        c.innerHTML='';
+        document.getElementById('friendsCount').innerText=data.friends.length;
+        document.getElementById('friendsLimit').innerHTML=`(${data.friends.length}/${data.maxFriends})`;
         data.friends.forEach(f=>{
-            const div=document.createElement('div');
+            let div=document.createElement('div');
             div.className='list-item';
             div.onclick=()=>{ currentChatType='private'; currentChatId=f.id; document.getElementById('chatTitle').innerHTML=`💬 Чат с ${escapeHtml(f.username)}`; document.getElementById('startCallBtn').style.display='inline-block'; loadPrivateMessages(); };
-            let nameStyle = f.nickColor ? `style="color:${f.nickColor}"` : '';
-            let badgeHtml = f.plusBadge ? `<span class="premium-badge" style="margin-left:5px;">${f.plusBadge}</span>` : '';
+            let nameStyle=f.nickColor?`style="color:${f.nickColor}"`:'';
+            let badgeHtml=f.plusBadge?`<span class="premium-badge" style="margin-left:5px;">${f.plusBadge}</span>`:'';
             div.innerHTML=`<div><div class="friend-name" ${nameStyle}>${escapeHtml(f.username)}${badgeHtml}</div><div class="friend-tag">#${f.tag}</div></div>`;
-            container.appendChild(div);
+            c.appendChild(div);
         });
     }
     async function loadRequests(){
-        const res=await fetch('/requests',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
-        const data=await res.json();
-        const container=document.getElementById('requestsList');
-        container.innerHTML='';
+        let res=await fetch('/requests',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
+        let data=await res.json();
+        let c=document.getElementById('requestsList');
+        c.innerHTML='';
         data.requests.forEach(r=>{
-            const div=document.createElement('div');
+            let div=document.createElement('div');
             div.className='list-item';
             div.innerHTML=`<span>${escapeHtml(r.username)}#${r.tag}</span><div><button class="btn-small btn-success" onclick="acceptReq(${r.id})">✅</button><button class="btn-small btn-danger" onclick="declineReq(${r.id})">❌</button></div>`;
-            container.appendChild(div);
+            c.appendChild(div);
         });
     }
     async function loadGroups(){
-        const res=await fetch('/groups',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
-        const data=await res.json();
-        const container=document.getElementById('groupsList');
-        container.innerHTML='';
-        document.getElementById('groupsCount').innerText = data.groups.length;
+        let res=await fetch('/groups',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
+        let data=await res.json();
+        let c=document.getElementById('groupsList');
+        c.innerHTML='';
+        document.getElementById('groupsCount').innerText=data.groups.length;
         data.groups.forEach(g=>{
-            const div=document.createElement('div');
+            let div=document.createElement('div');
             div.className='list-item';
             div.onclick=()=>{ currentChatType='group'; currentChatId=g.id; document.getElementById('chatTitle').innerHTML=`💬 Группа: ${escapeHtml(g.name)} (${g.membersCount} уч.)`; document.getElementById('startCallBtn').style.display='inline-block'; loadGroupMessages(); };
             div.innerHTML=`<div class="friend-name">${escapeHtml(g.name)}</div>`;
-            if(g.owner_id === currentUser.id) {
-                const manageBtn = document.createElement('button');
-                manageBtn.innerText = '⚙️';
-                manageBtn.className = 'btn-small';
-                manageBtn.onclick = (e) => { e.stopPropagation(); showGroupManage(g.id, g.name); };
-                div.appendChild(manageBtn);
+            if(g.owner_id===currentUser.id){
+                let btn=document.createElement('button');
+                btn.innerText='⚙️';
+                btn.className='btn-small';
+                btn.onclick=(e)=>{ e.stopPropagation(); showGroupManage(g.id,g.name); };
+                div.appendChild(btn);
             }
-            container.appendChild(div);
+            c.appendChild(div);
         });
     }
     async function loadPrivateMessages(){
         if(!currentChatId) return;
-        const res=await fetch('/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({u2:currentChatId})});
-        const data=await res.json();
-        const container=document.getElementById('messages');
-        container.innerHTML='';
+        let res=await fetch('/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({u2:currentChatId})});
+        let data=await res.json();
+        let c=document.getElementById('messages');
+        c.innerHTML='';
         data.messages.forEach(m=>{
-            const isOwn=m.from_user_id===currentUser.id;
-            const div=document.createElement('div');
-            div.className=`message ${isOwn?'message-own':'message-other'}`;
-            div.innerHTML=`${escapeHtml(m.message)}<div class="message-time">${new Date(m.timestamp).toLocaleTimeString()}</div>`;
-            container.appendChild(div);
+            let isOwn=m.from_user_id===currentUser.id;
+            let d=document.createElement('div');
+            d.className=`message ${isOwn?'message-own':'message-other'}`;
+            d.innerHTML=`${escapeHtml(m.message)}<div class="message-time">${new Date(m.timestamp).toLocaleTimeString()}</div>`;
+            c.appendChild(d);
         });
-        container.scrollTop=container.scrollHeight;
+        c.scrollTop=c.scrollHeight;
     }
     async function loadGroupMessages(){
         if(!currentChatId) return;
-        const res=await fetch('/group/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({groupId:currentChatId})});
-        const data=await res.json();
-        const container=document.getElementById('messages');
-        container.innerHTML='';
+        let res=await fetch('/group/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({groupId:currentChatId})});
+        let data=await res.json();
+        let c=document.getElementById('messages');
+        c.innerHTML='';
         data.messages.forEach(m=>{
-            const isOwn=m.from_user_id===currentUser.id;
-            const div=document.createElement('div');
-            div.className=`message ${isOwn?'message-own':'message-other'}`;
-            div.innerHTML=`<strong>${escapeHtml(m.fromName)}:</strong> ${escapeHtml(m.message)}<div class="message-time">${new Date(m.timestamp).toLocaleTimeString()}</div>`;
-            container.appendChild(div);
+            let isOwn=m.from_user_id===currentUser.id;
+            let d=document.createElement('div');
+            d.className=`message ${isOwn?'message-own':'message-other'}`;
+            d.innerHTML=`<strong>${escapeHtml(m.fromName)}:</strong> ${escapeHtml(m.message)}<div class="message-time">${new Date(m.timestamp).toLocaleTimeString()}</div>`;
+            c.appendChild(d);
         });
-        container.scrollTop=container.scrollHeight;
+        c.scrollTop=c.scrollHeight;
     }
     async function sendMessage(){
-        const msg=document.getElementById('messageInput').value.trim();
+        let msg=document.getElementById('messageInput').value.trim();
         if(!msg||!currentChatId) return;
         if(currentChatType==='private'){
             appendMessage(msg,true,new Date());
             socket.emit('private-message',{from:currentUser.id,to:currentChatId,msg,fromName:currentUser.username});
             await fetch('/send-message',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to_user_id:currentChatId,message:msg})});
-        } else if(currentChatType==='group'){
+        } else {
             appendMessage(msg,true,new Date());
             socket.emit('group-message',{group:currentChatId,from:currentUser.id,fromName:currentUser.username,msg});
             await fetch('/group/send-message',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({group_id:currentChatId,message:msg})});
         }
         document.getElementById('messageInput').value='';
     }
-
-    // ПОИСК
     document.getElementById('searchBtn').onclick=async()=>{
-        const q=document.getElementById('searchInput').value;
+        let q=document.getElementById('searchInput').value;
         if(!q) return;
-        const res=await fetch('/search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({q})});
-        const data=await res.json();
-        const container=document.getElementById('searchResults');
-        container.innerHTML='';
+        let res=await fetch('/search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({q})});
+        let data=await res.json();
+        let c=document.getElementById('searchResults');
+        c.innerHTML='';
         if(data.users.length){
             data.users.forEach(u=>{
-                const div=document.createElement('div');
+                let div=document.createElement('div');
                 div.className='list-item';
                 div.innerHTML=`<span>${escapeHtml(u.username)}#${u.tag}</span><button class="btn-small btn-success" onclick="addFriend(${u.id})">➕</button>`;
-                container.appendChild(div);
+                c.appendChild(div);
             });
-        } else container.innerHTML='<span class="error">❌ Не найден</span>';
+        } else c.innerHTML='<span class="error">❌ Не найден</span>';
     };
     window.addFriend=async(id)=>{
-        const res=await fetch('/friend/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to:id})});
-        const data=await res.json();
+        let res=await fetch('/friend/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to:id})});
+        let data=await res.json();
         if(data.success){ document.getElementById('searchResults').innerHTML='<span class="success">✅ Запрос отправлен</span>'; loadRequests(); }
         else alert('❌ '+data.error);
     };
     window.acceptReq=async(id)=>{ await fetch('/friend/accept',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})}); loadFriends(); loadRequests(); };
     window.declineReq=async(id)=>{ await fetch('/friend/decline',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})}); loadRequests(); };
 
-    // ГРУППЫ (создание)
     document.getElementById('createGroupBtn').onclick=async()=>{
-        const resFriends=await fetch('/friends',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
-        const friendsData=await resFriends.json();
-        if(friendsData.friends.length < 1) { alert('У вас нет друзей'); return; }
-        const maxMembers = currentPremium ? 20 : 9;
-        document.getElementById('maxMembersSpan').innerText = maxMembers;
-        const container = document.getElementById('friendsForGroup');
-        container.innerHTML = '';
-        let selectedMembers = [];
-        friendsData.friends.forEach(f=>{
-            const row = document.createElement('div');
-            row.className = 'member-row';
-            row.innerHTML = `<span>${escapeHtml(f.username)}#${f.tag}</span><button class="btn-small btn-success" data-id="${f.id}">+</button>`;
-            const btn = row.querySelector('button');
-            btn.onclick = () => {
-                if(selectedMembers.includes(f.id)) {
-                    selectedMembers = selectedMembers.filter(id=>id!==f.id);
-                    btn.innerText = '+';
+        let res=await fetch('/friends',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
+        let data=await res.json();
+        if(data.friends.length<1){ alert('У вас нет друзей'); return; }
+        let maxMem=currentPremium?20:9;
+        document.getElementById('maxMembersSpan').innerText=maxMem;
+        let container=document.getElementById('friendsForGroup');
+        container.innerHTML='';
+        let selected=[];
+        data.friends.forEach(f=>{
+            let row=document.createElement('div');
+            row.className='member-row';
+            row.innerHTML=`<span>${escapeHtml(f.username)}#${f.tag}</span><button class="btn-small btn-success" data-id="${f.id}">+</button>`;
+            let btn=row.querySelector('button');
+            btn.onclick=()=>{
+                if(selected.includes(f.id)){
+                    selected=selected.filter(id=>id!==f.id);
+                    btn.innerText='+';
                     btn.classList.remove('btn-danger');
                     btn.classList.add('btn-success');
                 } else {
-                    if(selectedMembers.length + 1 > maxMembers) { alert(`Максимум ${maxMembers} участников`); return; }
-                    selectedMembers.push(f.id);
-                    btn.innerText = '✓';
+                    if(selected.length+1>maxMem){ alert(`Максимум ${maxMem} участников`); return; }
+                    selected.push(f.id);
+                    btn.innerText='✓';
                     btn.classList.remove('btn-success');
                     btn.classList.add('btn-danger');
                 }
             };
             container.appendChild(row);
         });
-        document.getElementById('createGroupModal').style.display = 'flex';
-        document.getElementById('confirmCreateGroup').onclick = async () => {
-            const groupName = document.getElementById('groupName').value.trim();
-            if(!groupName) { alert('Введите название'); return; }
-            if(selectedMembers.length < 1) { alert('Выберите хотя бы одного друга (с вами будет минимум 2)'); return; }
-            const res = await fetch('/group/create', {
-                method:'POST',
-                headers:{'Content-Type':'application/json'},
-                body:JSON.stringify({ name: groupName, memberIds: selectedMembers })
-            });
-            const data = await res.json();
-            if(data.success) {
-                alert('Группа создана!');
-                document.getElementById('createGroupModal').style.display = 'none';
-                loadGroups();
-            } else alert('Ошибка: '+data.error);
+        document.getElementById('createGroupModal').style.display='flex';
+        document.getElementById('confirmCreateGroup').onclick=async()=>{
+            let name=document.getElementById('groupName').value.trim();
+            if(!name){ alert('Введите название'); return; }
+            if(selected.length<1){ alert('Выберите хотя бы одного друга'); return; }
+            let res2=await fetch('/group/create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,memberIds:selected})});
+            let data2=await res2.json();
+            if(data2.success){ alert('Группа создана!'); document.getElementById('createGroupModal').style.display='none'; loadGroups(); }
+            else alert('Ошибка: '+data2.error);
         };
     };
-    document.getElementById('closeGroupModal').onclick = ()=> document.getElementById('createGroupModal').style.display='none';
+    document.getElementById('closeGroupModal').onclick=()=>document.getElementById('createGroupModal').style.display='none';
 
-    async function showGroupManage(groupId, groupName) {
-        const res = await fetch('/groups',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
-        const data = await res.json();
-        const group = data.groups.find(g=>g.id===groupId);
-        if(!group || group.owner_id !== currentUser.id) { alert('Только создатель может управлять'); return; }
-        const membersRes = await fetch('/friends',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
-        const allFriends = await membersRes.json();
-        const memberDetails = group.members.map(mid=> {
-            const user = allFriends.friends.find(f=>f.id===mid) || {username:'Неизвестный', tag:'????'};
-            return {id:mid, username:user.username, tag:user.tag};
+    async function showGroupManage(gid,name){
+        let res=await fetch('/groups',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
+        let data=await res.json();
+        let grp=data.groups.find(g=>g.id===gid);
+        if(!grp||grp.owner_id!==currentUser.id){ alert('Только создатель может управлять'); return; }
+        let membersRes=await fetch('/friends',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
+        let allFriends=await membersRes.json();
+        let memberDetails=grp.members.map(mid=>{
+            let u=allFriends.friends.find(f=>f.id===mid)||{username:'Неизвестный',tag:'????'};
+            return {id:mid,username:u.username,tag:u.tag};
         });
-        const container = document.getElementById('groupMembersList');
-        container.innerHTML = `<div class="panel-title">Участники (${memberDetails.length})</div>`;
+        let container=document.getElementById('groupMembersList');
+        container.innerHTML=`<div class="panel-title">Участники (${memberDetails.length})</div>`;
         memberDetails.forEach(m=>{
-            const row = document.createElement('div');
-            row.className = 'member-row';
-            row.innerHTML = `<span>${escapeHtml(m.username)}#${m.tag}</span>`;
-            if(m.id !== currentUser.id) {
-                const kickBtn = document.createElement('button');
-                kickBtn.innerText = 'Кикнуть';
-                kickBtn.className = 'kick-btn';
-                kickBtn.onclick = async () => {
-                    await fetch('/group/kick', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ groupId, targetUserId: m.id }) });
+            let row=document.createElement('div');
+            row.className='member-row';
+            row.innerHTML=`<span>${escapeHtml(m.username)}#${m.tag}</span>`;
+            if(m.id!==currentUser.id){
+                let kick=document.createElement('button');
+                kick.innerText='Кикнуть';
+                kick.className='kick-btn';
+                kick.onclick=async()=>{
+                    await fetch('/group/kick',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({groupId:gid,targetUserId:m.id})});
                     alert('Участник кикнут');
                     document.getElementById('groupManageModal').style.display='none';
                     loadGroups();
                 };
-                row.appendChild(kickBtn);
+                row.appendChild(kick);
             }
             container.appendChild(row);
         });
-        document.getElementById('groupManageTitle').innerText = `Управление: ${groupName}`;
-        document.getElementById('groupManageModal').style.display = 'flex';
+        document.getElementById('groupManageTitle').innerText=`Управление: ${name}`;
+        document.getElementById('groupManageModal').style.display='flex';
     }
-    document.getElementById('closeGroupManageModal').onclick = ()=> document.getElementById('groupManageModal').style.display='none';
+    document.getElementById('closeGroupManageModal').onclick=()=>document.getElementById('groupManageModal').style.display='none';
 
-    // ЗВОНКИ
-    document.getElementById('startCallBtn').onclick = () => {
-        if(currentChatType === 'private' && currentChatId) startCall(currentChatId);
-        else if(currentChatType === 'group') alert('Групповые звонки пока в разработке');
-        else alert('Выберите чат');
+    document.getElementById('startCallBtn').onclick=()=>{
+        if(currentChatType==='private'&&currentChatId) startCall(currentChatId);
+        else alert('Выберите личный чат');
     };
-    document.getElementById('acceptCallBtn').onclick = acceptCall;
-    document.getElementById('endCallBtn').onclick = endCall;
+    document.getElementById('acceptCallBtn').onclick=acceptCall;
+    document.getElementById('endCallBtn').onclick=endCall;
 
-    // ПРЕМИУМ
-    document.getElementById('showPremiumModalBtn').onclick = () => document.getElementById('premiumModal').style.display='flex';
-    document.getElementById('closePremiumModal').onclick = () => document.getElementById('premiumModal').style.display='none';
+    document.getElementById('showPremiumModalBtn').onclick=()=>document.getElementById('premiumModal').style.display='flex';
+    document.getElementById('closePremiumModal').onclick=()=>document.getElementById('premiumModal').style.display='none';
     document.querySelectorAll('#premiumModal .profile-btn-plus').forEach(btn=>{
-        btn.onclick = async () => {
-            const plan = btn.getAttribute('data-plan');
-            const res = await fetch('/buy-premium', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({plan}) });
-            const data = await res.json();
-            if(data.success) {
-                alert('Подписка активирована! Перезагрузите страницу.');
-                location.reload();
-            } else alert('Ошибка: '+(data.error||'попробуйте позже'));
+        btn.onclick=async()=>{
+            let plan=btn.getAttribute('data-plan');
+            let res=await fetch('/buy-premium',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({plan})});
+            let data=await res.json();
+            if(data.success){ alert('Подписка активирована! Перезагрузите страницу.'); location.reload(); }
+            else alert('Ошибка: '+data.error);
         };
     });
 
-    // ПРЕМИУМ НАСТРОЙКИ
-    document.getElementById('changeUsernameBtn').onclick = async () => {
-        const newName = prompt('Новый никнейм (3-20 символов):');
-        if(!newName || newName.length<3) return;
-        const res = await fetch('/change-username', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({newUsername:newName}) });
-        const data = await res.json();
-        if(data.success) location.reload();
-        else alert(data.error);
+    document.getElementById('uploadAvatarBtn').onclick=()=>{
+        let input=document.createElement('input');
+        input.type='file';
+        input.accept='image/jpeg,image/png,image/gif';
+        input.onchange=async(e)=>{
+            let file=e.target.files[0];
+            if(!file) return;
+            let fd=new FormData();
+            fd.append('avatar',file);
+            let res=await fetch('/upload-avatar',{method:'POST',body:fd});
+            let data=await res.json();
+            if(data.success) alert('Аватар обновлён! Перезагрузите страницу.');
+            else alert('Ошибка: '+data.error);
+        };
+        input.click();
     };
-    document.getElementById('changeNickColorBtn').onclick = async () => {
-        const color = prompt('Введите HEX цвет (например #ff0000):', '#f5a623');
+    document.getElementById('uploadGifAvatarBtn').onclick=()=>{
+        if(!currentPremium){ alert('Только для Kinders+'); return; }
+        let input=document.createElement('input');
+        input.type='file';
+        input.accept='image/gif';
+        input.onchange=async(e)=>{
+            let file=e.target.files[0];
+            if(!file) return;
+            let fd=new FormData();
+            fd.append('gif',file);
+            let res=await fetch('/upload-gif-avatar',{method:'POST',body:fd});
+            let data=await res.json();
+            if(data.success) alert('GIF-аватар обновлён! Перезагрузите страницу.');
+            else alert('Ошибка: '+data.error);
+        };
+        input.click();
+    };
+    document.getElementById('uploadVideoBannerBtn').onclick=()=>{
+        if(!currentPremium){ alert('Только для Kinders+'); return; }
+        let input=document.createElement('input');
+        input.type='file';
+        input.accept='video/mp4,video/webm';
+        input.onchange=async(e)=>{
+            let file=e.target.files[0];
+            if(!file) return;
+            let fd=new FormData();
+            fd.append('video',file);
+            let res=await fetch('/upload-video-banner',{method:'POST',body:fd});
+            let data=await res.json();
+            if(data.success) alert('Видео-баннер обновлён! Перезагрузите страницу.');
+            else alert('Ошибка: '+data.error);
+        };
+        input.click();
+    };
+    document.getElementById('changeNickColorBtn').onclick=async()=>{
+        if(!currentPremium){ alert('Только для Kinders+'); return; }
+        let color=prompt('Введите HEX цвет (например #ff0000):','#f5a623');
         if(!color) return;
-        await fetch('/save-premium-settings', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({nickColor:color}) });
+        await fetch('/save-premium-settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nickColor:color})});
         alert('Цвет сохранён, перезагрузите страницу');
         location.reload();
     };
-    document.getElementById('setAnimatedAvatarBtn').onclick = async () => {
-        const url = prompt('Введите прямую ссылку на GIF (например https://i.imgur.com/example.gif)');
-        if(!url) return;
-        await fetch('/save-premium-settings', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({animatedAvatar:url}) });
-        alert('Аватарка обновлена, перезагрузите страницу');
-        location.reload();
-    };
-    document.getElementById('setVideoBannerBtn').onclick = async () => {
-        const url = prompt('Введите ссылку на MP4 видео для баннера');
-        if(!url) return;
-        await fetch('/save-premium-settings', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({videoBanner:url}) });
-        alert('Баннер обновлён, перезагрузите страницу');
-        location.reload();
-    };
-    document.getElementById('selectBadgeBtn').onclick = async () => {
-        const badge = prompt('Выберите значок: ⭐, 💎, 👑, 🔥, 🎨', '⭐');
+    document.getElementById('selectBadgeBtn').onclick=async()=>{
+        if(!currentPremium){ alert('Только для Kinders+'); return; }
+        let badge=prompt('Выберите значок: ⭐, 💎, 👑, 🔥, 🎨','⭐');
         if(!badge) return;
-        await fetch('/save-premium-settings', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({plusBadge:badge}) });
+        await fetch('/save-premium-settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({plusBadge:badge})});
         alert('Значок сохранён, перезагрузите страницу');
         location.reload();
     };
-    document.getElementById('logoutBtn').onclick = async()=>{ await fetch('/logout',{method:'POST'}); window.location.href='login.html'; };
-    document.getElementById('logoutProfileBtn').onclick = async()=>{ await fetch('/logout',{method:'POST'}); window.location.href='login.html'; };
-    document.getElementById('sendMsgBtn').onclick = sendMessage;
-    document.getElementById('messageInput').addEventListener('keypress',(e)=>{ if(e.key==='Enter') sendMessage(); });
+    document.getElementById('changeUsernameBtn').onclick=async()=>{
+        let newName=prompt('Новый никнейм (3-20 символов):');
+        if(!newName||newName.length<3) return;
+        let res=await fetch('/change-username',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({newUsername:newName})});
+        let data=await res.json();
+        if(data.success) location.reload();
+        else alert(data.error);
+    };
+    document.getElementById('logoutBtn').onclick=async()=>{ await fetch('/logout',{method:'POST'}); window.location.href='login.html'; };
+    document.getElementById('logoutProfileBtn').onclick=async()=>{ await fetch('/logout',{method:'POST'}); window.location.href='login.html'; };
+    document.getElementById('sendMsgBtn').onclick=sendMessage;
+    document.getElementById('messageInput').addEventListener('keypress',e=>{ if(e.key==='Enter') sendMessage(); });
 
-    // АДМИНКА
-    async function loadAllUsers() {
-        const res = await fetch('/all-users');
-        const data = await res.json();
-        const container = document.getElementById('usersList');
-        container.innerHTML = '';
-        if (!data.users.length) container.innerHTML = '<div class="list-item">Нет пользователей</div>';
-        else data.users.forEach(u => {
-            const div = document.createElement('div');
-            div.className = 'list-item';
-            div.innerHTML = `<span>${escapeHtml(u.username)}#${u.tag}</span><button class="btn-small btn-danger" data-id="${u.id}">Бан</button>`;
-            div.querySelector('button').onclick = async (e) => {
+    async function loadAllUsers(){
+        let res=await fetch('/all-users');
+        let data=await res.json();
+        let c=document.getElementById('usersList');
+        c.innerHTML='';
+        if(!data.users.length) c.innerHTML='<div class="list-item">Нет пользователей</div>';
+        else data.users.forEach(u=>{
+            let div=document.createElement('div');
+            div.className='list-item';
+            div.innerHTML=`<span>${escapeHtml(u.username)}#${u.tag}</span><button class="btn-small btn-danger" data-id="${u.id}">Бан</button>`;
+            div.querySelector('button').onclick=async(e)=>{
                 e.stopPropagation();
-                await fetch('/ban', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({userId: u.id}) });
+                await fetch('/ban',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:u.id})});
                 alert(`Пользователь ${u.username} забанен`);
                 loadAllUsers();
             };
-            container.appendChild(div);
+            c.appendChild(div);
         });
-        container.classList.remove('hidden');
+        c.classList.remove('hidden');
     }
-    document.getElementById('allUsersBtn').onclick = () => {
-        const container = document.getElementById('usersList');
-        if(container.classList.contains('hidden')) loadAllUsers();
-        else container.classList.add('hidden');
+    document.getElementById('allUsersBtn').onclick=()=>{
+        let c=document.getElementById('usersList');
+        if(c.classList.contains('hidden')) loadAllUsers();
+        else c.classList.add('hidden');
     };
-
-    function escapeHtml(str){ if(!str) return ''; return str.replace(/[&<>]/g,m=> m==='&'?'&amp;': m==='<'?'&lt;':'&gt;'); }
+    function escapeHtml(s){ if(!s) return ''; return s.replace(/[&<>]/g,m=> m==='&'?'&amp;': m==='<'?'&lt;':'&gt;'); }
     checkSession();
 </script>
 </body>
