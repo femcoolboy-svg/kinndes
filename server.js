@@ -355,6 +355,19 @@ io.on('connection', (socket) => {
         }
     });
 });
-
+// ---------- СМЕНА НИКА (простой, без проверки на уникальность, но для демо) ----------
+app.post('/change-username', async (req, res) => {
+    if (!req.session.userId) return res.json({ success: false, error: 'Не авторизован' });
+    const { newUsername } = req.body;
+    if (!newUsername || newUsername.length < 3) return res.json({ success: false, error: 'Ник слишком короткий' });
+    const user = users.find(u => u.id === req.session.userId);
+    if (!user) return res.json({ success: false, error: 'Пользователь не найден' });
+    // Проверка на уникальность (кроме админа)
+    if (users.find(u => u.username === newUsername && u.id !== user.id)) {
+        return res.json({ success: false, error: 'Никнейм уже занят' });
+    }
+    user.username = newUsername;
+    res.json({ success: true });
+});
 const PORT = process.env.PORT || 10000;
 server.listen(PORT, () => console.log(`🚀 Kinders сервер запущен на порту ${PORT}`));
