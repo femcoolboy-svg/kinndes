@@ -1,3 +1,56 @@
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
+// Создаём папку uploads, если её нет
+const uploadDir = './uploads';
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
+
+// Настройка хранилища для multer
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => cb(null, uploadDir),
+    filename: (req, file, cb) => {
+        const unique = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, unique + path.extname(file.originalname));
+    }
+});
+const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } }); // 10MB
+
+// Эндпоинты загрузки (только для премиум)
+app.post('/upload-avatar', upload.single('avatar'), (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Не авторизован' });
+    const user = users.find(u => u.id === req.session.userId);
+    if (!user) return res.status(401).json({ error: 'Пользователь не найден' });
+    if (!req.file) return res.status(400).json({ error: 'Файл не загружен' });
+    const avatarUrl = `/uploads/${req.file.filename}`;
+    user.avatar = avatarUrl;
+    res.json({ success: true, avatarUrl });
+});
+
+app.post('/upload-gif-avatar', upload.single('gif'), (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Не авторизован' });
+    if (!isPremium(req.session.userId)) return res.status(403).json({ error: 'Только для Kinders+' });
+    if (!req.file) return res.status(400).json({ error: 'Файл не загружен' });
+    const url = `/uploads/${req.file.filename}`;
+    let settings = userSettings.find(s => s.userId === req.session.userId);
+    if (!settings) { settings = { userId: req.session.userId }; userSettings.push(settings); }
+    settings.animatedAvatar = url;
+    res.json({ success: true, url });
+});
+
+app.post('/upload-video-banner', upload.single('video'), (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Не авторизован' });
+    if (!isPremium(req.session.userId)) return res.status(403).json({ error: 'Только для Kinders+' });
+    if (!req.file) return res.status(400).json({ error: 'Файл не загружен' });
+    const url = `/uploads/${req.file.filename}`;
+    let settings = userSettings.find(s => s.userId === req.session.userId);
+    if (!settings) { settings = { userId: req.session.userId }; userSettings.push(settings); }
+    settings.videoBanner = url;
+    res.json({ success: true, url });
+});
+
+// Раздача статики из папки uploads
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 const express = require('express');
 const session = require('express-session');
 const http = require('http');
