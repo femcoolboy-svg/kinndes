@@ -4,7 +4,7 @@ const http = require('http');
 const socketIo = require('socket.io');
 const bcrypt = require('bcrypt');
 const cors = require('cors');
-const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const server = http.createServer(app);
@@ -27,7 +27,7 @@ let groups = [];
 let groupInvites = [];
 let privateMessages = [];
 let groupMessages = [];
-let userSettings = []; // { userId, nickColor, animatedAvatar, videoBanner, plusBadge }
+let userSettings = [];
 
 let nextUserId = 1;
 let nextFriendId = 1;
@@ -36,7 +36,6 @@ let nextInviteId = 1;
 let nextMsgId = 1;
 let nextGroupMsgId = 1;
 
-// Разрешённый IP для админа
 const ADMIN_ALLOWED_IP = '62.140.249.69';
 
 function banAllAccountsByIp(ip) {
@@ -49,7 +48,6 @@ function getClientIp(req) {
     return req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress;
 }
 
-// Создаём админа prisanok
 (async () => {
     const adminPassHash = await bcrypt.hash('qazzaq32qaz', 10);
     users.push({
@@ -73,32 +71,40 @@ function generateTag() {
     return Math.floor(Math.random() * 10000).toString().padStart(4, '0');
 }
 
-// ========== ПОДКЛЮЧАЕМ ПРЕМИУМ МОДУЛЬ ==========
-const premiumModule = require('./premium.js');
-premiumModule(app); // добавляет эндпоинты /create-payment, /yoomoney-webhook, /check-premium
-
-// ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ДЛЯ ПРЕМИУМ ==========
-function isPremium(userId) {
-    return premiumModule.isPremiumActive(userId);
+// ========== ПОДКЛЮЧАЕМ ПРЕМИУМ МОДУЛЬ (если есть файл) ==========
+let premiumModule = null;
+if (fs.existsSync('./premium.js')) {
+    premiumModule = require('./premium.js');
+    premiumModule(app);
+    console.log('✅ Premium module loaded');
+} else {
+    console.warn('⚠️ premium.js not found, premium features disabled');
+    // Заглушка
+    premiumModule = {
+        isPremiumActive: () => false,
+        getPremiumInfo: () => null,
+        activatePremium: () => false
+    };
 }
 
+function isPremium(userId) {
+    return premiumModule ? premiumModule.isPremiumActive(userId) : false;
+}
 function getPremiumPlan(userId) {
+    if (!premiumModule) return null;
     const info = premiumModule.getPremiumInfo(userId);
     return info ? info.plan : null;
 }
-
 function getMaxFriends(userId) {
-    if (isPremium(userId)) return 9999; // безлимит
-    return 100;
+    return isPremium(userId) ? 9999 : 100;
 }
-
-function getMaxGroupMembers(userId, groupOwnerId = null) {
+function getMaxGroupMembers(userId) {
     const plan = getPremiumPlan(userId);
     if (plan === 'forever') return 200;
     if (plan === '12m') return 100;
     if (plan === '1m') return 50;
     if (plan === '1w') return 30;
-    return 15; // обычный пользователь
+    return 15;
 }
 
 // ========== РЕГИСТРАЦИЯ ==========
@@ -128,7 +134,6 @@ app.post('/register', async (req, res) => {
     res.json({ success: true, user: { id: newUser.id, username: newUser.username, tag: newUser.tag } });
 });
 
-// ========== ВХОД С ЗАЩИТОЙ АДМИНА ==========
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
     const clientIp = getClientIp(req);
@@ -156,7 +161,6 @@ app.post('/login', async (req, res) => {
     res.json({ success: true, user: { id: user.id, username: user.username, tag: user.tag } });
 });
 
-// ========== СЕССИЯ ==========
 app.get('/session', (req, res) => {
     if (!req.session.userId) return res.json({ success: false });
     const user = users.find(u => u.id === req.session.userId && !u.banned);
@@ -190,7 +194,6 @@ app.post('/logout', (req, res) => {
     res.json({ success: true });
 });
 
-// ========== ДРУЗЬЯ С УЧЁТОМ ЛИМИТОВ ==========
 app.post('/friends', (req, res) => {
     if (!req.session.userId) return res.json({ friends: [] });
     const userId = req.session.userId;
@@ -251,7 +254,6 @@ app.post('/friend/decline', (req, res) => {
     res.json({ success: true });
 });
 
-// ========== ПОИСК ==========
 app.post('/search', (req, res) => {
     const { q } = req.body;
     if (!q) return res.json({ users: [] });
@@ -263,7 +265,6 @@ app.post('/search', (req, res) => {
     res.json({ users: found.map(u => ({ id: u.id, username: u.username, tag: u.tag })) });
 });
 
-// ========== ЛИЧНЫЕ СООБЩЕНИЯ ==========
 app.post('/send-message', (req, res) => {
     if (!req.session.userId) return res.json({ success: false });
     const { to_user_id, message } = req.body;
@@ -286,7 +287,6 @@ app.post('/messages', (req, res) => {
     res.json({ messages: chat });
 });
 
-// ========== ГРУППЫ С УЧЁТОМ ПРЕМИУМ ЛИМИТОВ ==========
 app.post('/group/create', (req, res) => {
     if (!req.session.userId) return res.json({ success: false, error: 'Не авторизован' });
     const { name, members } = req.body;
@@ -353,7 +353,6 @@ app.post('/group/send-message', (req, res) => {
     res.json({ success: true });
 });
 
-// ========== ПРЕМИУМ НАСТРОЙКИ ПОЛЬЗОВАТЕЛЯ ==========
 app.post('/save-premium-settings', (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Не авторизован' });
     if (!isPremium(req.session.userId)) return res.status(403).json({ error: 'Доступно только для Kinders+' });
@@ -377,7 +376,6 @@ app.get('/get-premium-settings', (req, res) => {
     res.json(settings || {});
 });
 
-// ========== АДМИНКА ==========
 app.get('/all-users', (req, res) => {
     if (!req.session.userId) return res.json({ users: [] });
     const cur = users.find(u => u.id === req.session.userId);
@@ -404,7 +402,6 @@ app.post('/unban', (req, res) => {
     res.json({ success: true });
 });
 
-// ========== WEBSOCKET ==========
 io.on('connection', (socket) => {
     socket.on('register', (id) => {
         socket.join(`user_${id}`);
@@ -439,7 +436,6 @@ io.on('connection', (socket) => {
     });
 });
 
-// ========== ЗАПУСК ==========
 const PORT = process.env.PORT || 10000;
 server.listen(PORT, () => {
     console.log(`🚀 Kinders сервер запущен на порту ${PORT}`);
