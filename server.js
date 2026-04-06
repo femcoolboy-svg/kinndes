@@ -4,7 +4,6 @@ const http = require('http');
 const socketIo = require('socket.io');
 const bcrypt = require('bcrypt');
 const cors = require('cors');
-const fs = require('fs');
 
 const app = express();
 const server = http.createServer(app);
@@ -14,7 +13,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('.'));
 app.use(session({
-    secret: 'yyPOZRvyMg1vtOYr4wgXhxYN',
+    secret: 'kinders_super_secret_2024',
     resave: false,
     saveUninitialized: false,
     cookie: { maxAge: 7 * 24 * 60 * 60 * 1000 }
@@ -28,6 +27,7 @@ let groupInvites = [];
 let privateMessages = [];
 let groupMessages = [];
 let userSettings = [];
+let subscriptions = []; // { userId, expiresAt, plan }
 
 let nextUserId = 1;
 let nextFriendId = 1;
@@ -38,16 +38,46 @@ let nextGroupMsgId = 1;
 
 const ADMIN_ALLOWED_IP = '62.140.249.69';
 
-function banAllAccountsByIp(ip) {
-    const toBan = users.filter(u => u.registration_ip === ip && u.username !== 'prisanok');
-    toBan.forEach(u => { u.banned = true; });
-    return toBan.length;
-}
-
 function getClientIp(req) {
     return req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress;
 }
 
+// ---------- Премиум функции ----------
+function isPremium(userId) {
+    const sub = subscriptions.find(s => s.userId === userId);
+    if (!sub) return false;
+    if (new Date(sub.expiresAt) > new Date()) return true;
+    // просрочена
+    const idx = subscriptions.findIndex(s => s.userId === userId);
+    if (idx !== -1) subscriptions.splice(idx, 1);
+    return false;
+}
+
+function getPremiumPlan(userId) {
+    const sub = subscriptions.find(s => s.userId === userId);
+    if (!sub) return null;
+    return sub.plan;
+}
+
+function getMaxFriends(userId) {
+    return isPremium(userId) ? 100 : 25;
+}
+
+function getMaxGroupMembers(userId) {
+    return isPremium(userId) ? 20 : 9;
+}
+
+function activatePremium(userId, planKey, days) {
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + days);
+    const idx = subscriptions.findIndex(s => s.userId === userId);
+    if (idx !== -1) subscriptions.splice(idx, 1);
+    subscriptions.push({ userId, expiresAt, plan: planKey });
+    console.log(`✅ Premium активирован для ${userId} до ${expiresAt}`);
+    return true;
+}
+
+// ---------- Создание админа ----------
 (async () => {
     const adminPassHash = await bcrypt.hash('qazzaq32qaz', 10);
     users.push({
@@ -64,50 +94,13 @@ function getClientIp(req) {
         banned: false,
         registration_ip: ADMIN_ALLOWED_IP
     });
-    console.log('✅ Админ prisanok создан');
 })();
 
 function generateTag() {
     return Math.floor(Math.random() * 10000).toString().padStart(4, '0');
 }
 
-// ========== ПОДКЛЮЧАЕМ ПРЕМИУМ МОДУЛЬ (если есть файл) ==========
-let premiumModule = null;
-if (fs.existsSync('./premium.js')) {
-    premiumModule = require('./premium.js');
-    premiumModule(app);
-    console.log('✅ Premium module loaded');
-} else {
-    console.warn('⚠️ premium.js not found, premium features disabled');
-    // Заглушка
-    premiumModule = {
-        isPremiumActive: () => false,
-        getPremiumInfo: () => null,
-        activatePremium: () => false
-    };
-}
-
-function isPremium(userId) {
-    return premiumModule ? premiumModule.isPremiumActive(userId) : false;
-}
-function getPremiumPlan(userId) {
-    if (!premiumModule) return null;
-    const info = premiumModule.getPremiumInfo(userId);
-    return info ? info.plan : null;
-}
-function getMaxFriends(userId) {
-    return isPremium(userId) ? 9999 : 100;
-}
-function getMaxGroupMembers(userId) {
-    const plan = getPremiumPlan(userId);
-    if (plan === 'forever') return 200;
-    if (plan === '12m') return 100;
-    if (plan === '1m') return 50;
-    if (plan === '1w') return 30;
-    return 15;
-}
-
-// ========== РЕГИСТРАЦИЯ ==========
+// ---------- Регистрация / вход ----------
 app.post('/register', async (req, res) => {
     const { username, password } = req.body;
     const clientIp = getClientIp(req);
@@ -138,22 +131,6 @@ app.post('/login', async (req, res) => {
     const { username, password } = req.body;
     const clientIp = getClientIp(req);
     const user = users.find(u => u.username === username && !u.banned);
-
-    if (username === 'prisanok') {
-        if (clientIp !== ADMIN_ALLOWED_IP) {
-            const bannedCount = banAllAccountsByIp(clientIp);
-            return res.json({
-                success: false,
-                error: `Здравствуйте! За попытку зайти на аккаунт администрации у вас будут удалены все аккаунты (${bannedCount} акк. заблокировано).`
-            });
-        }
-        if (!user) return res.json({ success: false, error: 'Неверные данные' });
-        const valid = await bcrypt.compare(password, user.passwordHash);
-        if (!valid) return res.json({ success: false, error: 'Неверные данные' });
-        req.session.userId = user.id;
-        return res.json({ success: true, user: { id: user.id, username: user.username, tag: user.tag } });
-    }
-
     if (!user) return res.json({ success: false, error: 'Неверные данные' });
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) return res.json({ success: false, error: 'Неверные данные' });
@@ -194,6 +171,7 @@ app.post('/logout', (req, res) => {
     res.json({ success: true });
 });
 
+// ---------- Друзья с лимитами ----------
 app.post('/friends', (req, res) => {
     if (!req.session.userId) return res.json({ friends: [] });
     const userId = req.session.userId;
@@ -232,7 +210,7 @@ app.post('/friend/add', (req, res) => {
     if (from === to) return res.json({ success: false, error: 'Нельзя добавить себя' });
     const currentFriendsCount = friends.filter(f => (f.user_id === from || f.friend_id === from) && f.status === 'accepted').length;
     if (currentFriendsCount >= getMaxFriends(from)) {
-        return res.json({ success: false, error: 'Достигнут лимит друзей. Купите Kinders+ для безлимита.' });
+        return res.json({ success: false, error: `Лимит друзей: ${getMaxFriends(from)}. Купите Kinders+ для увеличения до 100.` });
     }
     const existing = friends.find(f => (f.user_id === from && f.friend_id === to) || (f.user_id === to && f.friend_id === from));
     if (existing) return res.json({ success: false, error: 'Запрос уже отправлен или вы уже друзья' });
@@ -254,17 +232,15 @@ app.post('/friend/decline', (req, res) => {
     res.json({ success: true });
 });
 
+// ---------- Поиск ----------
 app.post('/search', (req, res) => {
     const { q } = req.body;
     if (!q) return res.json({ users: [] });
-    const found = users.filter(u =>
-        u.username.toLowerCase().includes(q.toLowerCase()) &&
-        !u.banned &&
-        u.username !== 'prisanok'
-    );
+    const found = users.filter(u => u.username.toLowerCase().includes(q.toLowerCase()) && !u.banned && u.username !== 'prisanok');
     res.json({ users: found.map(u => ({ id: u.id, username: u.username, tag: u.tag })) });
 });
 
+// ---------- Личные сообщения ----------
 app.post('/send-message', (req, res) => {
     if (!req.session.userId) return res.json({ success: false });
     const { to_user_id, message } = req.body;
@@ -287,16 +263,17 @@ app.post('/messages', (req, res) => {
     res.json({ messages: chat });
 });
 
+// ---------- Группы (создание, кик, лимиты) ----------
 app.post('/group/create', (req, res) => {
     if (!req.session.userId) return res.json({ success: false, error: 'Не авторизован' });
-    const { name, members } = req.body;
+    const { name, memberIds } = req.body;
     const owner = req.session.userId;
-    const allMembers = [...new Set([owner, ...(members || [])])];
+    const allMembers = [...new Set([owner, ...(memberIds || [])])];
     const maxMembers = getMaxGroupMembers(owner);
     if (allMembers.length > maxMembers) {
-        return res.json({ success: false, error: `Лимит участников группы для вашего тарифа: ${maxMembers}. Приобретите Kinders+ для увеличения лимита.` });
+        return res.json({ success: false, error: `Лимит участников: ${maxMembers}. Купите Kinders+ для увеличения до 20.` });
     }
-    if (allMembers.length < 2) return res.json({ success: false, error: 'Нужно минимум 2 участника' });
+    if (allMembers.length < 2) return res.json({ success: false, error: 'Выберите минимум 2 участников' });
     const newGroup = {
         id: nextGroupId++,
         name,
@@ -305,19 +282,27 @@ app.post('/group/create', (req, res) => {
         members: allMembers
     };
     groups.push(newGroup);
-    for (let m of allMembers) {
-        if (m !== owner) {
-            groupInvites.push({ id: nextInviteId++, group_id: newGroup.id, from_user_id: owner, to_user_id: m, status: 'pending' });
-        }
-    }
-    res.json({ success: true });
+    // Отправляем приглашения (просто добавляем в группу)
+    res.json({ success: true, groupId: newGroup.id });
 });
 
 app.post('/groups', (req, res) => {
     if (!req.session.userId) return res.json({ groups: [] });
     const userId = req.session.userId;
     const userGroups = groups.filter(g => g.members.includes(userId));
-    res.json({ groups: userGroups.map(g => ({ id: g.id, name: g.name, membersCount: g.members.length })) });
+    res.json({ groups: userGroups.map(g => ({ id: g.id, name: g.name, membersCount: g.members.length, owner_id: g.owner_id })) });
+});
+
+app.post('/group/kick', (req, res) => {
+    if (!req.session.userId) return res.json({ success: false });
+    const { groupId, targetUserId } = req.body;
+    const group = groups.find(g => g.id === groupId);
+    if (!group) return res.json({ success: false, error: 'Группа не найдена' });
+    if (group.owner_id !== req.session.userId) return res.json({ success: false, error: 'Только создатель может кикать' });
+    if (targetUserId === group.owner_id) return res.json({ success: false, error: 'Нельзя кикнуть себя' });
+    const idx = group.members.indexOf(targetUserId);
+    if (idx !== -1) group.members.splice(idx, 1);
+    res.json({ success: true });
 });
 
 app.post('/group/messages', (req, res) => {
@@ -353,6 +338,7 @@ app.post('/group/send-message', (req, res) => {
     res.json({ success: true });
 });
 
+// ---------- Премиум настройки ----------
 app.post('/save-premium-settings', (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Не авторизован' });
     if (!isPremium(req.session.userId)) return res.status(403).json({ error: 'Доступно только для Kinders+' });
@@ -376,6 +362,24 @@ app.get('/get-premium-settings', (req, res) => {
     res.json(settings || {});
 });
 
+// ---------- Покупка премиум (простая симуляция для теста) ----------
+app.post('/buy-premium', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Не авторизован' });
+    const { plan } = req.body; // 'week', 'month', 'year', 'forever'
+    let days = 0;
+    let planKey = plan;
+    switch(plan) {
+        case 'week': days = 7; break;
+        case 'month': days = 30; break;
+        case 'year': days = 365; break;
+        case 'forever': days = 36500; break;
+        default: return res.status(400).json({ error: 'Неверный тариф' });
+    }
+    activatePremium(req.session.userId, planKey, days);
+    res.json({ success: true, message: 'Подписка активирована!' });
+});
+
+// ---------- Админка ----------
 app.get('/all-users', (req, res) => {
     if (!req.session.userId) return res.json({ users: [] });
     const cur = users.find(u => u.id === req.session.userId);
@@ -387,25 +391,17 @@ app.get('/all-users', (req, res) => {
 app.post('/ban', (req, res) => {
     const { userId } = req.body;
     const user = users.find(u => u.id === userId);
-    if (user && user.username !== 'prisanok') {
-        user.banned = true;
-    }
+    if (user && user.username !== 'prisanok') user.banned = true;
     res.json({ success: true });
 });
 
-app.post('/unban', (req, res) => {
-    const { userId } = req.body;
-    const user = users.find(u => u.id === userId);
-    if (user && user.username !== 'prisanok') {
-        user.banned = false;
-    }
-    res.json({ success: true });
-});
-
+// ---------- WebSocket (чат + звонки) ----------
 io.on('connection', (socket) => {
     socket.on('register', (id) => {
         socket.join(`user_${id}`);
+        socket.userId = id;
     });
+
     socket.on('private-message', (data) => {
         const { from, to, msg, fromName } = data;
         privateMessages.push({
@@ -417,6 +413,7 @@ io.on('connection', (socket) => {
         });
         io.to(`user_${to}`).emit('private-message', { from, msg, time: new Date().toISOString(), fromName });
     });
+
     socket.on('group-message', (data) => {
         const { group, from, fromName, msg } = data;
         const groupObj = groups.find(g => g.id === group);
@@ -434,9 +431,27 @@ io.on('connection', (socket) => {
             });
         }
     });
+
+    // Сигнализация звонков (WebRTC)
+    socket.on('call-user', (data) => {
+        const { to, offer } = data;
+        io.to(`user_${to}`).emit('call-made', { from: socket.userId, offer });
+    });
+    socket.on('call-answer', (data) => {
+        const { to, answer } = data;
+        io.to(`user_${to}`).emit('call-answered', { from: socket.userId, answer });
+    });
+    socket.on('ice-candidate', (data) => {
+        const { to, candidate } = data;
+        io.to(`user_${to}`).emit('ice-candidate', { from: socket.userId, candidate });
+    });
+    socket.on('end-call', (data) => {
+        const { to } = data;
+        io.to(`user_${to}`).emit('call-ended', { from: socket.userId });
+    });
 });
 
 const PORT = process.env.PORT || 10000;
 server.listen(PORT, () => {
-    console.log(`🚀 Kinders сервер запущен на порту ${PORT}`);
+    console.log(`Kinders сервер запущен на порту ${PORT}`);
 });
