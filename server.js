@@ -40,6 +40,7 @@ let privateMessages = [];
 let groupMessages = [];
 let userSettings = [];
 let subscriptions = []; // { userId, expiresAt, plan }
+let bannedIps = []; // список IP, которые забанены навсегда
 
 let nextUserId = 1, nextFriendId = 1, nextGroupId = 1, nextMsgId = 1, nextGroupMsgId = 1;
 
@@ -54,6 +55,10 @@ function isPremium(userId) {
 function getMaxFriends(userId) { return isPremium(userId) ? 100 : 25; }
 function getMaxGroupMembers(userId) { return isPremium(userId) ? 20 : 9; }
 function addDays(date, days) { const d = new Date(date); d.setDate(d.getDate() + days); return d; }
+function getClientIp(req) { return req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress; }
+
+// Запрещённые ники (регистронезависимо)
+const forbiddenNames = ['admin', 'owner', 'moderator', 'kinders', 'root', 'administrator', 'support', 'prisanok'];
 
 // ---------- АДМИН ----------
 (async () => {
@@ -61,20 +66,47 @@ function addDays(date, days) { const d = new Date(date); d.setDate(d.getDate() +
     users.push({ id: nextUserId++, username: 'prisanok', passwordHash: hash, tag: '0001', created_at: new Date().toISOString(), avatar: null, bio: 'Создатель', banned: false, registration_ip: '62.140.249.69' });
 })();
 function generateTag() { return Math.floor(Math.random()*10000).toString().padStart(4,'0'); }
-function getClientIp(req) { return req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress; }
 
-// ---------- РЕГИСТРАЦИЯ / ВХОД ----------
+// ---------- РЕГИСТРАЦИЯ С БЛОКИРОВКОЙ ПО IP И ЗАПРЕЩЁННЫМ НИКАМ ----------
 app.post('/register', async (req, res) => {
     const { username, password } = req.body;
+    const clientIp = getClientIp(req);
+    
+    // Проверка, не забанен ли IP
+    if (bannedIps.includes(clientIp)) {
+        return res.json({ success: false, error: 'Ваш IP-адрес заблокирован навсегда за попытку использовать запрещённый ник.' });
+    }
+    
     if (!username || !password) return res.json({ success: false, error: 'Заполните поля' });
+    
+    // Проверка на запрещённые ники
+    const lowerUsername = username.toLowerCase();
+    if (forbiddenNames.some(name => lowerUsername.includes(name))) {
+        // Блокируем IP навсегда
+        if (!bannedIps.includes(clientIp)) bannedIps.push(clientIp);
+        return res.json({ success: false, error: 'Ваш IP-адрес заблокирован навсегда за попытку использовать запрещённый ник.' });
+    }
+    
     if (users.find(u => u.username === username)) return res.json({ success: false, error: 'Ник занят' });
     if (password.length < 4) return res.json({ success: false, error: 'Пароль минимум 4 символа' });
+    
     const hash = await bcrypt.hash(password, 10);
-    const newUser = { id: nextUserId++, username, passwordHash: hash, tag: generateTag(), created_at: new Date().toISOString(), avatar: null, bio: '', banned: false, registration_ip: getClientIp(req) };
+    const newUser = { 
+        id: nextUserId++, 
+        username, 
+        passwordHash: hash, 
+        tag: generateTag(), 
+        created_at: new Date().toISOString(), 
+        avatar: null, 
+        bio: '', 
+        banned: false, 
+        registration_ip: clientIp 
+    };
     users.push(newUser);
     req.session.userId = newUser.id;
     res.json({ success: true, user: { id: newUser.id, username: newUser.username, tag: newUser.tag } });
 });
+
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
     const user = users.find(u => u.username === username && !u.banned);
@@ -84,13 +116,20 @@ app.post('/login', async (req, res) => {
     req.session.userId = user.id;
     res.json({ success: true, user: { id: user.id, username: user.username, tag: user.tag } });
 });
+
 app.get('/session', (req, res) => {
     if (!req.session.userId) return res.json({ success: false });
     const user = users.find(u => u.id === req.session.userId && !u.banned);
     if (!user) return res.json({ success: false });
     const settings = userSettings.find(s => s.userId === user.id) || {};
-    res.json({ success: true, user: { id: user.id, username: user.username, tag: user.tag, created_at: user.created_at, avatar: user.avatar }, isPremium: isPremium(user.id), settings: { nickColor: settings.nickColor, animatedAvatar: settings.animatedAvatar, videoBanner: settings.videoBanner, plusBadge: settings.plusBadge || '⭐' } });
+    res.json({ 
+        success: true, 
+        user: { id: user.id, username: user.username, tag: user.tag, created_at: user.created_at, avatar: user.avatar }, 
+        isPremium: isPremium(user.id), 
+        settings: { nickColor: settings.nickColor, animatedAvatar: settings.animatedAvatar, videoBanner: settings.videoBanner, plusBadge: settings.plusBadge || '⭐' } 
+    });
 });
+
 app.post('/logout', (req, res) => { req.session.destroy(); res.json({ success: true }); });
 
 // ---------- ДРУЗЬЯ ----------
@@ -106,6 +145,7 @@ app.post('/friends', (req, res) => {
     });
     res.json({ friends: friendList, maxFriends: getMaxFriends(userId), currentCount: friendList.length });
 });
+
 app.post('/requests', (req, res) => {
     if (!req.session.userId) return res.json({ requests: [] });
     const pending = friends.filter(f => f.friend_id === req.session.userId && f.status === 'pending');
@@ -115,6 +155,7 @@ app.post('/requests', (req, res) => {
     });
     res.json({ requests: requestList });
 });
+
 app.post('/friend/add', (req, res) => {
     if (!req.session.userId) return res.json({ success: false });
     const { to } = req.body;
@@ -126,6 +167,7 @@ app.post('/friend/add', (req, res) => {
     friends.push({ id: nextFriendId++, user_id: from, friend_id: to, status: 'pending' });
     res.json({ success: true });
 });
+
 app.post('/friend/accept', (req, res) => { const fr = friends.find(f => f.id === req.body.id); if(fr) fr.status = 'accepted'; res.json({ success: true }); });
 app.post('/friend/decline', (req, res) => { friends = friends.filter(f => f.id !== req.body.id); res.json({ success: true }); });
 
@@ -193,7 +235,7 @@ app.post('/group/messages', (req, res) => {
     res.json({ messages: msgs });
 });
 
-// ---------- ЗАГРУЗКА ФАЙЛОВ (аватарки, GIF, видео) ----------
+// ---------- ЗАГРУЗКА ФАЙЛОВ ----------
 app.post('/upload-avatar', upload.single('avatar'), (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Не авторизован' });
     const user = users.find(u => u.id === req.session.userId);
@@ -236,6 +278,11 @@ app.post('/change-username', (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Не авторизован' });
     const { newUsername } = req.body;
     if (!newUsername || newUsername.length < 3) return res.json({ success: false, error: 'Ник от 3 символов' });
+    // Проверка на запрещённые ники при смене
+    const lowerNew = newUsername.toLowerCase();
+    if (forbiddenNames.some(name => lowerNew.includes(name))) {
+        return res.json({ success: false, error: 'Этот никнейм запрещён' });
+    }
     const user = users.find(u => u.id === req.session.userId);
     if (!user) return res.json({ success: false, error: 'Пользователь не найден' });
     if (users.find(u => u.username === newUsername && u.id !== user.id)) return res.json({ success: false, error: 'Ник занят' });
@@ -243,7 +290,7 @@ app.post('/change-username', (req, res) => {
     res.json({ success: true });
 });
 
-// ---------- ПРЕМИУМ (симуляция покупки) ----------
+// ---------- ПРЕМИУМ (симуляция) ----------
 app.post('/buy-premium', (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Не авторизован' });
     const { plan } = req.body;
@@ -255,7 +302,7 @@ app.post('/buy-premium', (req, res) => {
     res.json({ success: true });
 });
 
-// ---------- АДМИНКА ----------
+// ---------- АДМИНКА (добавляем управление забаненными IP) ----------
 app.get('/all-users', (req, res) => {
     if (!req.session.userId) return res.json({ users: [] });
     const cur = users.find(u => u.id === req.session.userId);
@@ -263,8 +310,35 @@ app.get('/all-users', (req, res) => {
     res.json({ users: users.filter(u => !u.banned && u.username !== 'prisanok').map(u => ({ id: u.id, username: u.username, tag: u.tag })) });
 });
 app.post('/ban', (req, res) => {
-    const user = users.find(u => u.id === req.body.userId);
+    const { userId } = req.body;
+    const cur = users.find(u => u.id === req.session.userId);
+    if (cur?.username !== 'prisanok') return res.status(403).json({ error: 'Недостаточно прав' });
+    const user = users.find(u => u.id === userId);
     if (user && user.username !== 'prisanok') user.banned = true;
+    res.json({ success: true });
+});
+app.post('/unban', (req, res) => {
+    const { userId } = req.body;
+    const cur = users.find(u => u.id === req.session.userId);
+    if (cur?.username !== 'prisanok') return res.status(403).json({ error: 'Недостаточно прав' });
+    const user = users.find(u => u.id === userId);
+    if (user && user.username !== 'prisanok') user.banned = false;
+    res.json({ success: true });
+});
+
+// Управление забаненными IP
+app.get('/banned-ips', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Не авторизован' });
+    const cur = users.find(u => u.id === req.session.userId);
+    if (cur?.username !== 'prisanok') return res.status(403).json({ error: 'Недостаточно прав' });
+    res.json({ ips: bannedIps });
+});
+app.post('/unban-ip', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Не авторизован' });
+    const cur = users.find(u => u.id === req.session.userId);
+    if (cur?.username !== 'prisanok') return res.status(403).json({ error: 'Недостаточно прав' });
+    const { ip } = req.body;
+    bannedIps = bannedIps.filter(i => i !== ip);
     res.json({ success: true });
 });
 
@@ -275,7 +349,6 @@ io.on('connection', (socket) => {
         privateMessages.push({ id: nextMsgId++, from_user_id: data.from, to_user_id: data.to, message: data.msg, timestamp: new Date().toISOString() });
         io.to(`user_${data.to}`).emit('private-message', { from: data.from, msg: data.msg, time: new Date().toISOString(), fromName: data.fromName });
     });
-    socket.on('group-message', (data) => { });
     socket.on('call-user', (data) => { io.to(`user_${data.to}`).emit('call-made', { from: socket.userId, offer: data.offer, fromName: data.fromName }); });
     socket.on('call-answer', (data) => { io.to(`user_${data.to}`).emit('call-answered', { from: socket.userId, answer: data.answer }); });
     socket.on('ice-candidate', (data) => { io.to(`user_${data.to}`).emit('ice-candidate', { from: socket.userId, candidate: data.candidate }); });
