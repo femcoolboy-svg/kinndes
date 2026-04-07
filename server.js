@@ -34,11 +34,6 @@ const storage = multer.diskStorage({
 const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Папка для скачивания (если нужна, создаём)
-const downloadsDir = './downloads';
-if (!fs.existsSync(downloadsDir)) fs.mkdirSync(downloadsDir, { recursive: true });
-app.use('/downloads', express.static(downloadsDir));
-
 // ---------- ДАННЫЕ В ПАМЯТИ ----------
 let users = [];
 let friends = [];
@@ -330,7 +325,7 @@ app.post('/upload-gif-avatar', upload.single('gif'), (req, res) => {
 
 app.post('/upload-video-banner', upload.single('video'), (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Не авторизован' });
-    if (!isPremium(req.session.userId)) return res.status(403). json({ error: 'Только для Kinders+' });
+    if (!isPremium(req.session.userId)) return res.status(403).json({ error: 'Только для Kinders+' });
     if (!req.file) return res.status(400).json({ error: 'Файл не загружен' });
     let settings = userSettings.find(s => s.userId === req.session.userId);
     if (!settings) { settings = { userId: req.session.userId }; userSettings.push(settings); }
