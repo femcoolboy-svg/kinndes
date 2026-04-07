@@ -144,6 +144,7 @@
             <div class="stat"><div class="stat-value" id="regDate">—</div><div class="stat-label">регистрация</div></div>
         </div>
         <button class="profile-btn profile-btn-primary" id="changeUsernameBtn">✏️ Сменить ник</button>
+        <button class="profile-btn profile-btn-primary" onclick="location.href='premium.html'">💎 Купить Kinders+</button>
         <button class="profile-btn profile-btn-secondary" id="uploadAvatarBtn">🖼️ Загрузить аватар</button>
         <div id="premiumSettingsBlock" class="hidden">
             <button class="profile-btn profile-btn-secondary" id="uploadGifAvatarBtn">🎬 Загрузить GIF-аватар (Plus)</button>
@@ -151,7 +152,6 @@
             <button class="profile-btn profile-btn-secondary" id="changeNickColorBtn">🎨 Цвет ника (Plus)</button>
             <button class="profile-btn profile-btn-secondary" id="selectBadgeBtn">🏷️ Выбрать значок (Plus)</button>
         </div>
-        <button class="profile-btn profile-btn-plus" id="showPremiumModalBtn">💎 Kinders+</button>
         <button class="profile-btn profile-btn-danger" id="logoutProfileBtn">🚪 Выйти</button>
     </div>
 </div>
@@ -282,41 +282,42 @@
     }
     async function startCall(toUserId) {
         if(callActive) return;
+        if(!toUserId) return;
         try {
             localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
             peerConnection = new RTCPeerConnection(servers);
             localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream));
-            peerConnection.onicecandidate = (e) => { if(e.candidate) socket.emit('ice-candidate', { to: toUserId, candidate: e.candidate }); };
+            peerConnection.onicecandidate = (e) => { if(e.candidate && socket) socket.emit('ice-candidate', { to: toUserId, candidate: e.candidate }); };
             const offer = await peerConnection.createOffer();
             await peerConnection.setLocalDescription(offer);
-            socket.emit('call-user', { to: toUserId, offer, fromName: currentUser.username });
+            if(socket) socket.emit('call-user', { to: toUserId, offer, fromName: currentUser.username });
             callActive = true;
             callTarget = toUserId;
             document.getElementById('callStatus').innerText = 'Звоним...';
             document.getElementById('acceptCallBtn').style.display = 'none';
             document.getElementById('callModal').style.display = 'flex';
-        } catch(e) { alert('Нет доступа к микрофону'); }
+        } catch(e) { alert('Нет доступа к микрофону'); endCall(); }
     }
     async function acceptCall() {
         try {
             localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
             peerConnection = new RTCPeerConnection(servers);
             localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream));
-            peerConnection.onicecandidate = (e) => { if(e.candidate) socket.emit('ice-candidate', { to: callTarget, candidate: e.candidate }); };
+            peerConnection.onicecandidate = (e) => { if(e.candidate && socket) socket.emit('ice-candidate', { to: callTarget, candidate: e.candidate }); };
             await peerConnection.setRemoteDescription(new RTCSessionDescription(window.currentOffer));
             const answer = await peerConnection.createAnswer();
             await peerConnection.setLocalDescription(answer);
-            socket.emit('call-answer', { to: callTarget, answer });
+            if(socket) socket.emit('call-answer', { to: callTarget, answer });
             callActive = true;
             document.getElementById('callStatus').innerText = 'Разговор...';
             document.getElementById('acceptCallBtn').style.display = 'none';
-        } catch(e) { alert('Ошибка'); }
+        } catch(e) { alert('Ошибка'); endCall(); }
     }
     function endCall() {
         if(localStream) { localStream.getTracks().forEach(t=>t.stop()); localStream=null; }
         if(peerConnection) { peerConnection.close(); peerConnection=null; }
         callActive=false;
-        if(callTarget) socket.emit('end-call', { to: callTarget });
+        if(callTarget && socket) socket.emit('end-call', { to: callTarget });
         callTarget=null;
         document.getElementById('callModal').style.display='none';
     }
@@ -420,11 +421,11 @@
         if(!msg||!currentChatId) return;
         if(currentChatType==='private'){
             appendMessage(msg,true,new Date());
-            socket.emit('private-message',{from:currentUser.id,to:currentChatId,msg,fromName:currentUser.username});
+            if(socket) socket.emit('private-message',{from:currentUser.id,to:currentChatId,msg,fromName:currentUser.username});
             await fetch('/send-message',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to_user_id:currentChatId,message:msg})});
         } else {
             appendMessage(msg,true,new Date());
-            socket.emit('group-message',{group:currentChatId,from:currentUser.id,fromName:currentUser.username,msg});
+            if(socket) socket.emit('group-message',{group:currentChatId,from:currentUser.id,fromName:currentUser.username,msg});
             await fetch('/group/send-message',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({group_id:currentChatId,message:msg})});
         }
         document.getElementById('messageInput').value='';
@@ -458,7 +459,7 @@
         let res=await fetch('/friends',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
         let data=await res.json();
         if(data.friends.length<1){ alert('У вас нет друзей'); return; }
-        let maxMem=currentPremium?20:9;
+        let maxMem = currentPremium ? 20 : 9;
         document.getElementById('maxMembersSpan').innerText=maxMem;
         let container=document.getElementById('friendsForGroup');
         container.innerHTML='';
@@ -498,23 +499,16 @@
     document.getElementById('closeGroupModal').onclick=()=>document.getElementById('createGroupModal').style.display='none';
 
     async function showGroupManage(gid,name){
-        let res=await fetch('/groups',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
+        let res=await fetch('/group/members',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({groupId:gid})});
         let data=await res.json();
-        let grp=data.groups.find(g=>g.id===gid);
-        if(!grp||grp.owner_id!==currentUser.id){ alert('Только создатель может управлять'); return; }
-        let membersRes=await fetch('/friends',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
-        let allFriends=await membersRes.json();
-        let memberDetails=grp.members.map(mid=>{
-            let u=allFriends.friends.find(f=>f.id===mid)||{username:'Неизвестный',tag:'????'};
-            return {id:mid,username:u.username,tag:u.tag};
-        });
+        if(!data.members){ alert('Нет доступа'); return; }
         let container=document.getElementById('groupMembersList');
-        container.innerHTML=`<div class="panel-title">Участники (${memberDetails.length})</div>`;
-        memberDetails.forEach(m=>{
+        container.innerHTML=`<div class="panel-title">Участники (${data.members.length})</div>`;
+        data.members.forEach(m=>{
             let row=document.createElement('div');
             row.className='member-row';
             row.innerHTML=`<span>${escapeHtml(m.username)}#${m.tag}</span>`;
-            if(m.id!==currentUser.id){
+            if(m.id !== currentUser.id && data.ownerId === currentUser.id){
                 let kick=document.createElement('button');
                 kick.innerText='Кикнуть';
                 kick.className='kick-btn';
@@ -540,7 +534,7 @@
     document.getElementById('acceptCallBtn').onclick=acceptCall;
     document.getElementById('endCallBtn').onclick=endCall;
 
-    document.getElementById('showPremiumModalBtn').onclick=()=>document.getElementById('premiumModal').style.display='flex';
+    document.getElementById('showPremiumModalBtn')?.addEventListener('click',()=>document.getElementById('premiumModal').style.display='flex');
     document.getElementById('closePremiumModal').onclick=()=>document.getElementById('premiumModal').style.display='none';
     document.querySelectorAll('#premiumModal .profile-btn-plus').forEach(btn=>{
         btn.onclick=async()=>{
@@ -657,7 +651,6 @@
         else c.classList.add('hidden');
     };
 
-    // Кнопка показа забаненных IP
     async function loadBannedIps() {
         let res = await fetch('/banned-ips');
         let data = await res.json();
