@@ -10,7 +10,6 @@
             padding: 0;
             box-sizing: border-box;
         }
-
         body {
             font-family: 'Inter', system-ui, -apple-system, sans-serif;
             background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 100%);
@@ -18,18 +17,15 @@
             color: #e8edf5;
             padding: 40px 20px;
         }
-
         .container {
             max-width: 1300px;
             margin: 0 auto;
         }
-
         .header {
             text-align: center;
             margin-bottom: 50px;
             animation: fadeInDown 0.6s ease;
         }
-
         .header h1 {
             font-size: 52px;
             background: linear-gradient(135deg, #FFD700, #FFA500);
@@ -38,19 +34,16 @@
             color: transparent;
             margin-bottom: 15px;
         }
-
         .header p {
             color: #9aa4bf;
             font-size: 18px;
         }
-
         .pricing-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
             gap: 30px;
             margin-bottom: 70px;
         }
-
         .card {
             background: rgba(30, 34, 41, 0.8);
             backdrop-filter: blur(10px);
@@ -62,19 +55,16 @@
             animation: fadeInUp 0.6s ease;
             animation-fill-mode: both;
         }
-
         .card:hover {
             transform: translateY(-10px);
             box-shadow: 0 25px 40px rgba(0,0,0,0.4);
             border-color: #FFD700;
         }
-
         .card.popular {
             background: linear-gradient(135deg, rgba(255,215,0,0.15), rgba(255,165,0,0.15));
             border: 2px solid #FFD700;
             transform: scale(1.02);
         }
-
         .badge {
             display: inline-block;
             background: #FFD700;
@@ -85,47 +75,40 @@
             border-radius: 50px;
             margin-bottom: 15px;
         }
-
         .plan-name {
             font-size: 28px;
             font-weight: 800;
             margin-bottom: 10px;
         }
-
         .price {
             font-size: 40px;
             font-weight: 800;
             margin: 20px 0;
             color: #FFD700;
         }
-
         .price span {
             font-size: 16px;
             font-weight: normal;
             color: #9aa4bf;
         }
-
         .old-price {
             font-size: 16px;
             text-decoration: line-through;
             color: #ff6b6b;
             margin-left: 8px;
         }
-
         .saving {
             font-size: 13px;
             color: #6bdd8c;
             margin-top: -15px;
             margin-bottom: 20px;
         }
-
         .features {
             list-style: none;
             margin: 25px 0;
             text-align: left;
             padding: 0 15px;
         }
-
         .features li {
             padding: 8px 0;
             display: flex;
@@ -134,14 +117,12 @@
             font-size: 14px;
             border-bottom: 1px solid rgba(255,255,255,0.05);
         }
-
         .features li::before {
             content: "✓";
             color: #6bdd8c;
             font-weight: bold;
             font-size: 16px;
         }
-
         .btn-buy {
             background: linear-gradient(135deg, #FFD700, #FFA500);
             border: none;
@@ -155,12 +136,10 @@
             color: #1a1a2e;
             margin-top: 10px;
         }
-
         .btn-buy:hover {
             transform: scale(1.02);
             filter: brightness(1.05);
         }
-
         .all-features {
             background: rgba(30, 34, 41, 0.6);
             border-radius: 40px;
@@ -169,50 +148,42 @@
             text-align: center;
             border: 1px solid rgba(255,215,0,0.2);
         }
-
         .all-features h2 {
             font-size: 32px;
             margin-bottom: 30px;
             color: #FFD700;
         }
-
         .features-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
             gap: 25px;
             text-align: left;
         }
-
         .feature-item {
             background: rgba(0,0,0,0.3);
             padding: 20px;
             border-radius: 24px;
             transition: 0.2s;
         }
-
         .feature-item:hover {
             background: rgba(255,215,0,0.1);
             transform: translateY(-4px);
         }
-
         .feature-icon {
             font-size: 32px;
             margin-bottom: 12px;
         }
-
         .feature-title {
             font-size: 18px;
             font-weight: bold;
             margin-bottom: 8px;
             color: #FFD700;
         }
-
         .feature-desc {
             font-size: 14px;
             color: #c0c0d0;
             line-height: 1.4;
         }
-
         .back-link {
             display: inline-block;
             margin-top: 30px;
@@ -221,21 +192,17 @@
             font-weight: 500;
             transition: 0.2s;
         }
-
         .back-link:hover {
             text-decoration: underline;
         }
-
         @keyframes fadeInDown {
             from { opacity: 0; transform: translateY(-30px); }
             to { opacity: 1; transform: translateY(0); }
         }
-
         @keyframes fadeInUp {
             from { opacity: 0; transform: translateY(30px); }
             to { opacity: 1; transform: translateY(0); }
         }
-
         @media (max-width: 700px) {
             body { padding: 20px; }
             .header h1 { font-size: 36px; }
@@ -251,7 +218,6 @@
     </div>
 
     <div class="pricing-grid">
-        <!-- Неделя -->
         <div class="card">
             <div class="plan-name">🔥 Неделя</div>
             <div class="price">49 ₽<span>/нед</span></div>
@@ -268,7 +234,6 @@
             <button class="btn-buy" data-plan="week">Купить за 49 ₽</button>
         </div>
 
-        <!-- Месяц (популярный) -->
         <div class="card popular">
             <div class="badge">🔥 Популярный</div>
             <div class="plan-name">⭐ Месяц</div>
@@ -286,7 +251,6 @@
             <button class="btn-buy" data-plan="month">Купить за 149 ₽</button>
         </div>
 
-        <!-- Год -->
         <div class="card">
             <div class="plan-name">💎 Год</div>
             <div class="price">1 290 ₽<span>/год</span></div>
@@ -304,7 +268,6 @@
             <button class="btn-buy" data-plan="year">Купить за 1 290 ₽</button>
         </div>
 
-        <!-- Навсегда -->
         <div class="card">
             <div class="plan-name">👑 Навсегда</div>
             <div class="price">4 990 ₽<span>/ lifetime</span></div>
@@ -351,15 +314,11 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ plan })
             });
-            if (res.headers.get('content-type')?.includes('text/html')) {
-                // Сервер вернул форму оплаты — открываем в новой вкладке
-                const html = await res.text();
-                const win = window.open();
-                win.document.write(html);
-                win.document.close();
-                alert('После успешной оплаты подписка активируется автоматически в течение минуты.');
+            const data = await res.json();
+            if (data.success && data.redirectUrl) {
+                // Переход на страницу оплаты ЮMoney
+                window.location.href = data.redirectUrl;
             } else {
-                const data = await res.json();
                 alert('Ошибка: ' + (data.error || 'попробуйте позже'));
             }
         } catch (err) {
