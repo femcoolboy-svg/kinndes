@@ -7,7 +7,6 @@ const cors = require('cors');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const crypto = require('crypto');
 
 const app = express();
 const server = http.createServer(app);
@@ -17,6 +16,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('.'));
+
 app.use(session({
     secret: 'kinders_secret_2024',
     resave: false,
@@ -24,10 +24,10 @@ app.use(session({
     cookie: { maxAge: 30 * 24 * 60 * 60 * 1000 }
 }));
 
-// ---------- НАСТРОЙКИ ЮMONEY ----------
+// ---------- НАСТРОЙКИ ЮMoney ----------
 const YOOMONEY_WALLET = '4100118589497198';
-const YOOMONEY_SECRET = 'your_secret_key_here'; // Замените на секретное слово из настроек ЮMoney
-const BASE_URL = process.env.BASE_URL || 'https://your-domain.com'; // Укажите ваш домен
+// Для production укажите свой домен
+const BASE_URL = process.env.BASE_URL || `http://localhost:${process.env.PORT || 10000}`;
 
 // ---------- ЗАГРУЗКА ФАЙЛОВ ----------
 const uploadDir = './uploads';
@@ -46,9 +46,9 @@ let groups = [];
 let privateMessages = [];
 let groupMessages = [];
 let userSettings = [];
-let subscriptions = [];      // { userId, expiresAt, plan, paymentId? }
+let subscriptions = [];
 let bannedIps = [];
-let pendingPayments = [];    // временное хранение перед подтверждением
+let pendingPayments = [];
 
 let nextUserId = 1, nextFriendId = 1, nextGroupId = 1, nextMsgId = 1, nextGroupMsgId = 1;
 
@@ -60,23 +60,20 @@ function isPremium(userId) {
     subscriptions = subscriptions.filter(s => s.userId !== userId);
     return false;
 }
-
 function getMaxFriends(userId) { return isPremium(userId) ? 10000 : 25; }
 function getMaxGroupMembers(userId) { return isPremium(userId) ? 200 : 9; }
-
 function addDays(date, days) { const d = new Date(date); d.setDate(d.getDate() + days); return d; }
-
 function isUsernameForbidden(username) {
     const lower = username.toLowerCase();
     const forbidden = ['admin', 'owner', 'moderator', 'kinders', 'root', 'administrator', 'support'];
     return forbidden.includes(lower);
 }
-
 function getClientIp(req) {
     let ip = req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress;
     if (!ip || ip === '::1') ip = '127.0.0.1';
     return ip;
 }
+function generateTag() { return Math.floor(Math.random()*10000).toString().padStart(4,'0'); }
 
 // ---------- АДМИН (создаётся при первом запуске) ----------
 (async () => {
@@ -96,9 +93,7 @@ function getClientIp(req) {
     }
 })();
 
-function generateTag() { return Math.floor(Math.random()*10000).toString().padStart(4,'0'); }
-
-// ---------- РЕГИСТРАЦИЯ С БАНОМ IP ----------
+// ---------- РЕГИСТРАЦИЯ ----------
 app.post('/register', async (req, res) => {
     const { username, password } = req.body;
     const clientIp = getClientIp(req);
@@ -167,7 +162,7 @@ app.get('/session', (req, res) => {
 
 app.post('/logout', (req, res) => { req.session.destroy(); res.json({ success: true }); });
 
-// ---------- ДРУЗЬЯ (с фильтром несуществующих) ----------
+// ---------- ДРУЗЬЯ ----------
 app.post('/friends', (req, res) => {
     if (!req.session.userId) return res.json({ friends: [] });
     const userId = req.session.userId;
@@ -357,21 +352,10 @@ app.post('/change-username', (req, res) => {
     res.json({ success: true });
 });
 
-// ---------- ПЛАТЕЖИ ЮMONEY (реальная интеграция) ----------
-const PLAN_PRICES = {
-    week: 49,
-    month: 149,
-    year: 1290,
-    forever: 4990
-};
-const PLAN_DAYS = {
-    week: 7,
-    month: 30,
-    year: 365,
-    forever: 36500
-};
+// ---------- ПЛАТЕЖИ ЮMoney ----------
+const PLAN_PRICES = { week: 49, month: 149, year: 1290, forever: 4990 };
+const PLAN_DAYS = { week: 7, month: 30, year: 365, forever: 36500 };
 
-// Создание платежа (возвращает форму для отправки на ЮMoney)
 app.post('/create-payment', (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Не авторизован' });
     const { plan } = req.body;
@@ -381,75 +365,40 @@ app.post('/create-payment', (req, res) => {
     const user = users.find(u => u.id === userId);
     if (!user) return res.status(401).json({ error: 'Пользователь не найден' });
 
-    // Генерируем уникальный номер платежа (можно сохранить в pendingPayments)
     const paymentId = Date.now() + '-' + userId + '-' + Math.random().toString(36).substr(2, 8);
     pendingPayments.push({ paymentId, userId, plan, amount, createdAt: new Date() });
 
-    // Формируем параметры для формы ЮMoney (быстрый платёж)
-    const formHtml = `
-        <form id="yoomoneyForm" action="https://yoomoney.ru/quickpay/confirm.xml" method="POST" target="_blank">
-            <input type="hidden" name="receiver" value="${YOOMONEY_WALLET}">
-            <input type="hidden" name="formcomment" value="Kinders+ Premium">
-            <input type="hidden" name="short-dest" value="Подписка Kinders+ для ${user.username}">
-            <input type="hidden" name="label" value="${paymentId}">
-            <input type="hidden" name="quickpay-form" value="small">
-            <input type="hidden" name="targets" value="Kinders+ Premium (${plan})">
-            <input type="hidden" name="sum" value="${amount}" data-type="number">
-            <input type="hidden" name="comment" value="${user.username} #${user.tag}">
-            <input type="hidden" name="need-fio" value="false">
-            <input type="hidden" name="need-email" value="false">
-            <input type="hidden" name="need-phone" value="false">
-            <input type="hidden" name="need-address" value="false">
-            <input type="hidden" name="paymentType" value="PC">
-        </form>
-        <script>document.getElementById('yoomoneyForm').submit();</script>
-    `;
-    res.send(formHtml);
+    const params = new URLSearchParams({
+        receiver: YOOMONEY_WALLET,
+        quickpay: 'small',
+        targeted: '',
+        paymentType: 'PC',
+        sum: amount,
+        label: paymentId,
+        comment: `Kinders+ ${plan} для ${user.username} #${user.tag}`,
+        successURL: `${BASE_URL}/premium-success.html`,
+        needFio: 'false',
+        needEmail: 'false',
+        needPhone: 'false',
+        needAddress: 'false'
+    });
+    const redirectUrl = `https://yoomoney.ru/quickpay/confirm?${params.toString()}`;
+    res.json({ success: true, redirectUrl });
 });
 
-// Webhook для приёма уведомлений от ЮMoney (указывается в настройках магазина)
+// Webhook для автоматической активации (опционально)
 app.post('/yoomoney-webhook', (req, res) => {
-    // Проверка подписи (если задан секрет)
-    const notification_type = req.body.notification_type;
-    const operation_id = req.body.operation_id;
-    const amount = req.body.amount;
-    const currency = req.body.currency;
-    const datetime = req.body.datetime;
-    const sender = req.body.sender;
-    const codepro = req.body.codepro;
-    const label = req.body.label;   // наш paymentId
-    const sha1_hash = req.body.sha1_hash;
-
-    // В реальности нужно проверить sha1_hash (если есть секрет)
-    // Здесь упрощённо: ищем paymentId в pendingPayments
+    const { label } = req.body;
     const payment = pendingPayments.find(p => p.paymentId === label);
-    if (!payment) return res.sendStatus(200);
-
-    // Активируем подписку
-    const days = PLAN_DAYS[payment.plan];
-    const expiresAt = addDays(new Date(), days);
-    subscriptions = subscriptions.filter(s => s.userId !== payment.userId);
-    subscriptions.push({ userId: payment.userId, expiresAt, plan: payment.plan });
-    // Удаляем из pending
-    pendingPayments = pendingPayments.filter(p => p.paymentId !== label);
-    console.log(`Подписка активирована для user ${payment.userId}, план ${payment.plan}`);
+    if (payment) {
+        const days = PLAN_DAYS[payment.plan];
+        const expiresAt = addDays(new Date(), days);
+        subscriptions = subscriptions.filter(s => s.userId !== payment.userId);
+        subscriptions.push({ userId: payment.userId, expiresAt, plan: payment.plan });
+        pendingPayments = pendingPayments.filter(p => p.paymentId !== label);
+        console.log(`Подписка активирована для user ${payment.userId}`);
+    }
     res.sendStatus(200);
-});
-
-// Ручная проверка (если webhook не пришёл, пользователь может подтвердить сам)
-app.post('/check-payment', (req, res) => {
-    if (!req.session.userId) return res.status(401).json({ error: 'Не авторизован' });
-    const { paymentId } = req.body;
-    const payment = pendingPayments.find(p => p.paymentId === paymentId);
-    if (!payment || payment.userId !== req.session.userId) return res.json({ success: false, error: 'Платёж не найден' });
-    // В идеале здесь сделать запрос к API ЮMoney для проверки статуса, но для демо:
-    res.json({ success: false, error: 'Ожидайте подтверждения от администратора или используйте автоматический webhook.' });
-});
-
-// Для отладки: получить статус подписки
-app.get('/premium-status', (req, res) => {
-    if (!req.session.userId) return res.json({ success: false });
-    res.json({ isPremium: isPremium(req.session.userId) });
 });
 
 // ---------- АДМИНКА ----------
@@ -485,20 +434,16 @@ app.post('/unban-ip', (req, res) => {
     res.json({ success: true });
 });
 
-// ---------- WEBSOCKET + ЗВОНКИ (исправлено) ----------
+// ---------- WEBSOCKET ----------
 io.on('connection', (socket) => {
     socket.on('register', (id) => { socket.join(`user_${id}`); socket.userId = id; });
-
     socket.on('private-message', (data) => {
         privateMessages.push({ id: nextMsgId++, from_user_id: data.from, to_user_id: data.to, message: data.msg, timestamp: new Date().toISOString() });
         io.to(`user_${data.to}`).emit('private-message', { from: data.from, msg: data.msg, time: new Date().toISOString(), fromName: data.fromName });
     });
-
     socket.on('group-message', (data) => {
-        // Сохраняем сообщение в БД
         const newMsg = { id: nextGroupMsgId++, group_id: data.group, from_user_id: data.from, fromName: data.fromName, message: data.msg, timestamp: new Date().toISOString() };
         groupMessages.push(newMsg);
-        // Рассылаем участникам группы
         const group = groups.find(g => g.id === data.group);
         if (group) {
             group.members.forEach(mid => {
@@ -506,7 +451,6 @@ io.on('connection', (socket) => {
             });
         }
     });
-
     socket.on('call-user', (data) => { io.to(`user_${data.to}`).emit('call-made', { from: socket.userId, offer: data.offer, fromName: data.fromName }); });
     socket.on('call-answer', (data) => { io.to(`user_${data.to}`).emit('call-answered', { from: socket.userId, answer: data.answer }); });
     socket.on('ice-candidate', (data) => { io.to(`user_${data.to}`).emit('ice-candidate', { from: socket.userId, candidate: data.candidate }); });
@@ -514,4 +458,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 10000;
-server.listen(PORT, () => console.log(`Kinders server running on port ${PORT}`));
+server.listen(PORT, () => console.log(`Kinders server running on ${PORT}`));
