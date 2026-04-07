@@ -15,7 +15,7 @@ const io = socketIo(server, { cors: { origin: "*", methods: ["GET", "POST"] } })
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static('.'));
+app.use(express.static('.')); // раздаёт index.html, login.html и т.д.
 
 app.use(session({
     secret: 'kinders_secret_2024',
@@ -26,10 +26,9 @@ app.use(session({
 
 // ---------- НАСТРОЙКИ ЮMoney ----------
 const YOOMONEY_WALLET = '4100118589497198';
-// Для production укажите свой домен
 const BASE_URL = process.env.BASE_URL || `http://localhost:${process.env.PORT || 10000}`;
 
-// ---------- ЗАГРУЗКА ФАЙЛОВ ----------
+// ---------- ЗАГРУЗКА ФАЙЛОВ (аватары, GIF, видео) ----------
 const uploadDir = './uploads';
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
 const storage = multer.diskStorage({
@@ -38,6 +37,11 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// ---------- ПАПКА ДЛЯ УСТАНОВЩИКОВ (скачивание приложения) ----------
+const downloadsDir = './downloads';
+if (!fs.existsSync(downloadsDir)) fs.mkdirSync(downloadsDir);
+app.use('/downloads', express.static(downloadsDir));
 
 // ---------- ДАННЫЕ В ПАМЯТИ ----------
 let users = [];
@@ -54,6 +58,8 @@ let nextUserId = 1, nextFriendId = 1, nextGroupId = 1, nextMsgId = 1, nextGroupM
 
 // ---------- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ----------
 function isPremium(userId) {
+    const user = users.find(u => u.id === userId);
+    if (user && user.username === 'prisanok') return true; // админ всегда премиум
     const sub = subscriptions.find(s => s.userId === userId);
     if (!sub) return false;
     if (new Date(sub.expiresAt) > new Date()) return true;
@@ -79,7 +85,7 @@ function generateTag() { return Math.floor(Math.random()*10000).toString().padSt
 (async () => {
     if (!users.find(u => u.username === 'prisanok')) {
         const hash = await bcrypt.hash('qazzaq32qaz', 10);
-        users.push({
+        const newAdmin = {
             id: nextUserId++,
             username: 'prisanok',
             passwordHash: hash,
@@ -89,7 +95,10 @@ function generateTag() { return Math.floor(Math.random()*10000).toString().padSt
             bio: 'Создатель',
             banned: false,
             registration_ip: '62.140.249.69'
-        });
+        };
+        users.push(newAdmin);
+        // Навсегда премиум
+        subscriptions.push({ userId: newAdmin.id, expiresAt: addDays(new Date(), 36500), plan: 'forever' });
     }
 })();
 
@@ -298,7 +307,7 @@ app.post('/group/messages', (req, res) => {
     res.json({ messages: msgs });
 });
 
-// ---------- ЗАГРУЗКА ФАЙЛОВ ----------
+// ---------- ЗАГРУЗКА ФАЙЛОВ (аватары, GIF, видео) ----------
 app.post('/upload-avatar', upload.single('avatar'), (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Не авторизован' });
     const user = users.find(u => u.id === req.session.userId);
@@ -386,7 +395,7 @@ app.post('/create-payment', (req, res) => {
     res.json({ success: true, redirectUrl });
 });
 
-// Webhook для автоматической активации (опционально)
+// Webhook для автоматической активации
 app.post('/yoomoney-webhook', (req, res) => {
     const { label } = req.body;
     const payment = pendingPayments.find(p => p.paymentId === label);
@@ -434,13 +443,15 @@ app.post('/unban-ip', (req, res) => {
     res.json({ success: true });
 });
 
-// ---------- WEBSOCKET ----------
+// ---------- WEBSOCKET (ЧАТ + ЗВОНКИ) ----------
 io.on('connection', (socket) => {
     socket.on('register', (id) => { socket.join(`user_${id}`); socket.userId = id; });
+
     socket.on('private-message', (data) => {
         privateMessages.push({ id: nextMsgId++, from_user_id: data.from, to_user_id: data.to, message: data.msg, timestamp: new Date().toISOString() });
         io.to(`user_${data.to}`).emit('private-message', { from: data.from, msg: data.msg, time: new Date().toISOString(), fromName: data.fromName });
     });
+
     socket.on('group-message', (data) => {
         const newMsg = { id: nextGroupMsgId++, group_id: data.group, from_user_id: data.from, fromName: data.fromName, message: data.msg, timestamp: new Date().toISOString() };
         groupMessages.push(newMsg);
@@ -451,6 +462,7 @@ io.on('connection', (socket) => {
             });
         }
     });
+
     socket.on('call-user', (data) => { io.to(`user_${data.to}`).emit('call-made', { from: socket.userId, offer: data.offer, fromName: data.fromName }); });
     socket.on('call-answer', (data) => { io.to(`user_${data.to}`).emit('call-answered', { from: socket.userId, answer: data.answer }); });
     socket.on('ice-candidate', (data) => { io.to(`user_${data.to}`).emit('ice-candidate', { from: socket.userId, candidate: data.candidate }); });
@@ -458,4 +470,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 10000;
-server.listen(PORT, () => console.log(`Kinders server running on ${PORT}`));
+server.listen(PORT, () => console.log(`Kinders server running on port ${PORT}`));
