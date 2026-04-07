@@ -1,45 +1,21 @@
 {
   "name": "kinders",
   "version": "1.0.0",
-  "description": "Kinders — общайся свободно",
-  "main": "main.js",
+  "description": "Kinders chat",
+  "main": "server.js",
   "scripts": {
-    "start": "electron .",
-    "dist": "electron-builder"
+    "start": "node server.js",
+    "install": "npm install"
   },
-  "author": "Kinders Team",
-  "license": "MIT",
-  "devDependencies": {
-    "electron": "^28.0.0",
-    "electron-builder": "^24.9.1"
+  "dependencies": {
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "socket.io": "^4.6.1",
+    "bcrypt": "^5.1.1",
+    "cors": "^2.8.5",
+    "multer": "^1.4.5-lts.1"
   },
-  "build": {
-    "appId": "com.kinders.chat",
-    "productName": "Kinders",
-    "directories": {
-      "output": "dist"
-    },
-    "files": [
-      "main.js",
-      "preload.js",
-      "index.html",
-      "login.html",
-      "register.html",
-      "premium.html",
-      "download.html",
-      "style.css"
-    ],
-    "win": {
-      "target": "nsis",
-      "icon": "icon.ico"
-    },
-    "mac": {
-      "target": "dmg",
-      "icon": "icon.icns"
-    },
-    "linux": {
-      "target": "AppImage",
-      "icon": "icon.png"
-    }
+  "engines": {
+    "node": ">=16"
   }
 }
