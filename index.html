@@ -117,6 +117,8 @@
             <div class="panel-title">👑 АДМИН ПАНЕЛЬ</div>
             <button id="allUsersBtn" style="width:100%; background:#ff6b6b; border:none; padding:8px; border-radius:20px;">Показать пользователей</button>
             <div id="usersList" class="list hidden"></div>
+            <button id="showBannedIpsBtn" style="width:100%; margin-top:8px; background:#ff6b6b; border:none; padding:8px; border-radius:20px;">🚫 Забаненные IP</button>
+            <div id="bannedIpsList" class="list hidden"></div>
         </div>
     </div>
 
@@ -654,6 +656,36 @@
         if(c.classList.contains('hidden')) loadAllUsers();
         else c.classList.add('hidden');
     };
+
+    // Кнопка показа забаненных IP
+    async function loadBannedIps() {
+        let res = await fetch('/banned-ips');
+        let data = await res.json();
+        let container = document.getElementById('bannedIpsList');
+        container.innerHTML = '';
+        if (!data.ips.length) container.innerHTML = '<div class="list-item">Нет забаненных IP</div>';
+        else {
+            data.ips.forEach(ip => {
+                let div = document.createElement('div');
+                div.className = 'list-item';
+                div.innerHTML = `<span>${escapeHtml(ip)}</span><button class="btn-small btn-success" data-ip="${ip}">Разбанить</button>`;
+                div.querySelector('button').onclick = async (e) => {
+                    e.stopPropagation();
+                    await fetch('/unban-ip', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ip }) });
+                    alert(`IP ${ip} разбанен`);
+                    loadBannedIps();
+                };
+                container.appendChild(div);
+            });
+        }
+        container.classList.remove('hidden');
+    }
+    document.getElementById('showBannedIpsBtn').onclick = () => {
+        let c = document.getElementById('bannedIpsList');
+        if (c.classList.contains('hidden')) loadBannedIps();
+        else c.classList.add('hidden');
+    };
+
     function escapeHtml(s){ if(!s) return ''; return s.replace(/[&<>]/g,m=> m==='&'?'&amp;': m==='<'?'&lt;':'&gt;'); }
     checkSession();
 </script>
