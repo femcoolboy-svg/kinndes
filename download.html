@@ -148,31 +148,19 @@
             <div class="card-icon">🪟</div>
             <h3>Windows</h3>
             <p>Kinders для Windows 10/11 (x64)</p>
-            <a href="/downloads/Kinders_Setup.exe" class="download-link" id="winLink">Скачать .exe</a>
+            <a href="/downloads/Kinders_Setup.exe" class="download-link" download>Скачать .exe</a>
         </div>
         <div class="card">
             <div class="card-icon">🍏</div>
             <h3>macOS</h3>
             <p>Kinders для Mac (Intel/Apple Silicon)</p>
-            <a href="/downloads/Kinders.dmg" class="download-link" id="macLink">Скачать .dmg</a>
+            <a href="/downloads/Kinders.dmg" class="download-link" download>Скачать .dmg</a>
         </div>
         <div class="card">
             <div class="card-icon">🐧</div>
             <h3>Linux</h3>
             <p>Kinders для Ubuntu/Debian (AppImage)</p>
-            <a href="/downloads/Kinders.AppImage" class="download-link" id="linuxLink">Скачать AppImage</a>
-        </div>
-        <div class="card">
-            <div class="card-icon">📱</div>
-            <h3>Android</h3>
-            <p>Kinders APK для Android 8+</p>
-            <a href="/downloads/Kinders.apk" class="download-link" id="androidLink">Скачать APK</a>
-        </div>
-        <div class="card">
-            <div class="card-icon">🍎</div>
-            <h3>iOS</h3>
-            <p>Доступно в App Store</p>
-            <a href="https://apps.apple.com/app/id666" class="download-link" target="_blank">App Store</a>
+            <a href="/downloads/Kinders.AppImage" class="download-link" download>Скачать AppImage</a>
         </div>
     </div>
 
@@ -183,33 +171,8 @@
 </div>
 
 <script>
-    // Если реальных файлов нет, заменяем ссылки на демо-заглушки (инструкция)
-    // В production замените на реальные ссылки на файлы.
-    const links = {
-        win: '/downloads/Kinders_Setup.exe',
-        mac: '/downloads/Kinders.dmg',
-        linux: '/downloads/Kinders.AppImage',
-        android: '/downloads/Kinders.apk'
-    };
-    // Для демонстрации: если файлы не существуют, можно скачать текстовый файл-инструкцию.
-    // Но лучше просто оставить ссылки как есть, а на сервере разместить реальные файлы.
-    // Ниже — функция, которая проверяет существование файла (необязательно).
-    async function checkFile(url, elementId) {
-        try {
-            const response = await fetch(url, { method: 'HEAD' });
-            if (!response.ok) {
-                // Если файла нет, заменяем ссылку на скачивание инструкции
-                const link = document.getElementById(elementId);
-                link.href = '/downloads/readme.txt';
-                link.innerText = 'Инструкция (файл временно)';
-            }
-        } catch(e) {}
-    }
-    // Раскомментируйте, если хотите автоматическую проверку
-    // checkFile(links.win, 'winLink');
-    // checkFile(links.mac, 'macLink');
-    // checkFile(links.linux, 'linuxLink');
-    // checkFile(links.android, 'androidLink');
+    // Если файлы не существуют, можно заменить ссылку на readme.txt (опционально)
+    // Для демонстрации просто оставляем как есть.
 </script>
 </body>
 </html>
