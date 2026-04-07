@@ -28,9 +28,10 @@
         }
         body { background: var(--bg-primary); color: var(--text-primary); font-family: system-ui, sans-serif; transition: background 0.3s; }
         .header { display: flex; justify-content: space-between; align-items: center; padding: 16px 28px; background: var(--bg-card); border-bottom: 1px solid var(--border); flex-wrap: wrap; gap: 15px; }
-        .logo { font-size: 28px; font-weight: bold; color: var(--accent); }
+        .logo { font-size: 28px; font-weight: bold; color: var(--accent); cursor: pointer; }
         .user-area { display: flex; gap: 20px; align-items: center; }
-        .theme-btn, .logout-btn { background: var(--bg-input); border: none; padding: 8px 16px; border-radius: 30px; cursor: pointer; }
+        .theme-btn, .logout-btn, .download-btn { background: var(--bg-input); border: none; padding: 8px 16px; border-radius: 30px; cursor: pointer; }
+        .download-btn { background: #6bdd8c; color: #1a1a2e; font-weight: bold; }
         .logout-btn { background: #ff6b6b; color: white; }
         .main-grid { display: grid; grid-template-columns: 320px 1fr 320px; gap: 20px; max-width: 1600px; margin: 20px auto; padding: 0 20px; animation: fadeIn 0.6s; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -89,11 +90,12 @@
 </head>
 <body class="dark">
 <div class="header">
-    <div class="logo">🐻 Kinders</div>
+    <div class="logo" onclick="location.href='index.html'">🐻 Kinders</div>
     <div class="user-area">
         <span id="currentUsername"></span>
         <button class="theme-btn" id="themeSun">☀️</button>
         <button class="theme-btn" id="themeMoon">🌙</button>
+        <button class="download-btn" onclick="location.href='download.html'">📱 Скачать</button>
         <button class="logout-btn" id="logoutBtn">Выйти</button>
     </div>
 </div>
