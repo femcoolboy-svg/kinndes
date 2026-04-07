@@ -15,7 +15,7 @@ const io = socketIo(server, { cors: { origin: "*", methods: ["GET", "POST"] } })
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static('.')); // раздаёт index.html, login.html и т.д.
+app.use(express.static('.'));
 
 app.use(session({
     secret: 'kinders_secret_2024',
@@ -24,11 +24,7 @@ app.use(session({
     cookie: { maxAge: 30 * 24 * 60 * 60 * 1000 }
 }));
 
-// ---------- НАСТРОЙКИ ЮMoney ----------
-const YOOMONEY_WALLET = '4100118589497198';
-const BASE_URL = process.env.BASE_URL || `http://localhost:${process.env.PORT || 10000}`;
-
-// ---------- ЗАГРУЗКА ФАЙЛОВ (аватары, GIF, видео) ----------
+// ---------- ЗАГРУЗКА ФАЙЛОВ (аватары и пр.) ----------
 const uploadDir = './uploads';
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
 const storage = multer.diskStorage({
@@ -38,11 +34,6 @@ const storage = multer.diskStorage({
 const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// ---------- ПАПКА ДЛЯ УСТАНОВЩИКОВ (скачивание приложения) ----------
-const downloadsDir = './downloads';
-if (!fs.existsSync(downloadsDir)) fs.mkdirSync(downloadsDir);
-app.use('/downloads', express.static(downloadsDir));
-
 // ---------- ДАННЫЕ В ПАМЯТИ ----------
 let users = [];
 let friends = [];
@@ -50,25 +41,29 @@ let groups = [];
 let privateMessages = [];
 let groupMessages = [];
 let userSettings = [];
-let subscriptions = [];
+let subscriptions = [];      // { userId, expiresAt, plan, grantedBy, grantedAt }
 let bannedIps = [];
-let pendingPayments = [];
 
 let nextUserId = 1, nextFriendId = 1, nextGroupId = 1, nextMsgId = 1, nextGroupMsgId = 1;
 
 // ---------- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ----------
 function isPremium(userId) {
-    const user = users.find(u => u.id === userId);
-    if (user && user.username === 'prisanok') return true; // админ всегда премиум
     const sub = subscriptions.find(s => s.userId === userId);
     if (!sub) return false;
     if (new Date(sub.expiresAt) > new Date()) return true;
     subscriptions = subscriptions.filter(s => s.userId !== userId);
     return false;
 }
+
+function getPremiumExpiry(userId) {
+    const sub = subscriptions.find(s => s.userId === userId);
+    if (!sub) return null;
+    return new Date(sub.expiresAt);
+}
+
 function getMaxFriends(userId) { return isPremium(userId) ? 10000 : 25; }
 function getMaxGroupMembers(userId) { return isPremium(userId) ? 200 : 9; }
-function addDays(date, days) { const d = new Date(date); d.setDate(d.getDate() + days); return d; }
+function addHours(date, hours) { const d = new Date(date); d.setHours(d.getHours() + hours); return d; }
 function isUsernameForbidden(username) {
     const lower = username.toLowerCase();
     const forbidden = ['admin', 'owner', 'moderator', 'kinders', 'root', 'administrator', 'support'];
@@ -81,7 +76,7 @@ function getClientIp(req) {
 }
 function generateTag() { return Math.floor(Math.random()*10000).toString().padStart(4,'0'); }
 
-// ---------- АДМИН (создаётся при первом запуске) ----------
+// ---------- АДМИН (prisanok) создаётся при запуске ----------
 (async () => {
     if (!users.find(u => u.username === 'prisanok')) {
         const hash = await bcrypt.hash('qazzaq32qaz', 10);
@@ -97,8 +92,8 @@ function generateTag() { return Math.floor(Math.random()*10000).toString().padSt
             registration_ip: '62.140.249.69'
         };
         users.push(newAdmin);
-        // Навсегда премиум
-        subscriptions.push({ userId: newAdmin.id, expiresAt: addDays(new Date(), 36500), plan: 'forever' });
+        // Админ получает бессрочный премиум
+        subscriptions.push({ userId: newAdmin.id, expiresAt: addHours(new Date(), 24*365*100), plan: 'forever', grantedBy: 'system', grantedAt: new Date() });
     }
 })();
 
@@ -144,7 +139,7 @@ app.post('/login', async (req, res) => {
     res.json({ success: true, user: { id: user.id, username: user.username, tag: user.tag } });
 });
 
-// ---------- СЕССИЯ ----------
+// ---------- СЕССИЯ (с информацией о премиуме) ----------
 app.get('/session', (req, res) => {
     if (!req.session.userId) return res.json({ success: false });
     const user = users.find(u => u.id === req.session.userId && !u.banned);
@@ -160,6 +155,7 @@ app.get('/session', (req, res) => {
             avatar: user.avatar
         },
         isPremium: isPremium(user.id),
+        premiumExpiry: getPremiumExpiry(user.id),
         settings: {
             nickColor: settings.nickColor,
             animatedAvatar: settings.animatedAvatar,
@@ -171,7 +167,7 @@ app.get('/session', (req, res) => {
 
 app.post('/logout', (req, res) => { req.session.destroy(); res.json({ success: true }); });
 
-// ---------- ДРУЗЬЯ ----------
+// ---------- ДРУЗЬЯ (с фильтром несуществующих) ----------
 app.post('/friends', (req, res) => {
     if (!req.session.userId) return res.json({ friends: [] });
     const userId = req.session.userId;
@@ -337,7 +333,7 @@ app.post('/upload-video-banner', upload.single('video'), (req, res) => {
     res.json({ success: true });
 });
 
-// ---------- НАСТРОЙКИ ПРЕМИУМ ----------
+// ---------- НАСТРОЙКИ ПРЕМИУМ (только для активных премиум-пользователей) ----------
 app.post('/save-premium-settings', (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Не авторизован' });
     if (!isPremium(req.session.userId)) return res.status(403).json({ error: 'Доступно только для Kinders+' });
@@ -361,56 +357,36 @@ app.post('/change-username', (req, res) => {
     res.json({ success: true });
 });
 
-// ---------- ПЛАТЕЖИ ЮMoney ----------
-const PLAN_PRICES = { week: 49, month: 149, year: 1290, forever: 4990 };
-const PLAN_DAYS = { week: 7, month: 30, year: 365, forever: 36500 };
-
-app.post('/create-payment', (req, res) => {
+// ---------- АДМИНКА: выдача премиума вручную ----------
+app.post('/admin/grant-premium', (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Не авторизован' });
-    const { plan } = req.body;
-    if (!PLAN_PRICES[plan]) return res.status(400).json({ error: 'Неверный тариф' });
-    const amount = PLAN_PRICES[plan];
-    const userId = req.session.userId;
-    const user = users.find(u => u.id === userId);
-    if (!user) return res.status(401).json({ error: 'Пользователь не найден' });
-
-    const paymentId = Date.now() + '-' + userId + '-' + Math.random().toString(36).substr(2, 8);
-    pendingPayments.push({ paymentId, userId, plan, amount, createdAt: new Date() });
-
-    const params = new URLSearchParams({
-        receiver: YOOMONEY_WALLET,
-        quickpay: 'small',
-        targeted: '',
-        paymentType: 'PC',
-        sum: amount,
-        label: paymentId,
-        comment: `Kinders+ ${plan} для ${user.username} #${user.tag}`,
-        successURL: `${BASE_URL}/premium-success.html`,
-        needFio: 'false',
-        needEmail: 'false',
-        needPhone: 'false',
-        needAddress: 'false'
-    });
-    const redirectUrl = `https://yoomoney.ru/quickpay/confirm?${params.toString()}`;
-    res.json({ success: true, redirectUrl });
-});
-
-// Webhook для автоматической активации
-app.post('/yoomoney-webhook', (req, res) => {
-    const { label } = req.body;
-    const payment = pendingPayments.find(p => p.paymentId === label);
-    if (payment) {
-        const days = PLAN_DAYS[payment.plan];
-        const expiresAt = addDays(new Date(), days);
-        subscriptions = subscriptions.filter(s => s.userId !== payment.userId);
-        subscriptions.push({ userId: payment.userId, expiresAt, plan: payment.plan });
-        pendingPayments = pendingPayments.filter(p => p.paymentId !== label);
-        console.log(`Подписка активирована для user ${payment.userId}`);
+    const admin = users.find(u => u.id === req.session.userId);
+    if (admin?.username !== 'prisanok') return res.status(403).json({ error: 'Доступ только администратору' });
+    const { username, hours } = req.body;
+    if (!username || !hours || hours <= 0) return res.status(400).json({ error: 'Укажите ник и количество часов' });
+    const targetUser = users.find(u => u.username === username && !u.banned);
+    if (!targetUser) return res.json({ success: false, error: 'Пользователь не найден' });
+    const expiresAt = addHours(new Date(), hours);
+    // Обновляем или добавляем подписку
+    const existing = subscriptions.find(s => s.userId === targetUser.id);
+    if (existing) {
+        existing.expiresAt = expiresAt;
+        existing.plan = `manual_${hours}h`;
+        existing.grantedBy = admin.username;
+        existing.grantedAt = new Date();
+    } else {
+        subscriptions.push({
+            userId: targetUser.id,
+            expiresAt: expiresAt,
+            plan: `manual_${hours}h`,
+            grantedBy: admin.username,
+            grantedAt: new Date()
+        });
     }
-    res.sendStatus(200);
+    res.json({ success: true, message: `Премиум выдан пользователю ${username} на ${hours} часов` });
 });
 
-// ---------- АДМИНКА ----------
+// ---------- АДМИНКА: список пользователей и баны (без изменений) ----------
 app.get('/all-users', (req, res) => {
     if (!req.session.userId) return res.json({ users: [] });
     const cur = users.find(u => u.id === req.session.userId);
@@ -443,15 +419,13 @@ app.post('/unban-ip', (req, res) => {
     res.json({ success: true });
 });
 
-// ---------- WEBSOCKET (ЧАТ + ЗВОНКИ) ----------
+// ---------- WEBSOCKET (чат и звонки) ----------
 io.on('connection', (socket) => {
     socket.on('register', (id) => { socket.join(`user_${id}`); socket.userId = id; });
-
     socket.on('private-message', (data) => {
         privateMessages.push({ id: nextMsgId++, from_user_id: data.from, to_user_id: data.to, message: data.msg, timestamp: new Date().toISOString() });
         io.to(`user_${data.to}`).emit('private-message', { from: data.from, msg: data.msg, time: new Date().toISOString(), fromName: data.fromName });
     });
-
     socket.on('group-message', (data) => {
         const newMsg = { id: nextGroupMsgId++, group_id: data.group, from_user_id: data.from, fromName: data.fromName, message: data.msg, timestamp: new Date().toISOString() };
         groupMessages.push(newMsg);
@@ -462,7 +436,6 @@ io.on('connection', (socket) => {
             });
         }
     });
-
     socket.on('call-user', (data) => { io.to(`user_${data.to}`).emit('call-made', { from: socket.userId, offer: data.offer, fromName: data.fromName }); });
     socket.on('call-answer', (data) => { io.to(`user_${data.to}`).emit('call-answered', { from: socket.userId, answer: data.answer }); });
     socket.on('ice-candidate', (data) => { io.to(`user_${data.to}`).emit('ice-candidate', { from: socket.userId, candidate: data.candidate }); });
