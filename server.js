@@ -24,15 +24,20 @@ app.use(session({
     cookie: { maxAge: 30 * 24 * 60 * 60 * 1000 }
 }));
 
-// ---------- ЗАГРУЗКА ФАЙЛОВ (аватары и пр.) ----------
+// ---------- ЗАГРУЗКА ФАЙЛОВ ----------
 const uploadDir = './uploads';
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 const storage = multer.diskStorage({
     destination: (req, file, cb) => cb(null, uploadDir),
     filename: (req, file, cb) => cb(null, Date.now() + '-' + Math.round(Math.random() * 1E9) + path.extname(file.originalname))
 });
 const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Папка для скачивания (если нужна, создаём)
+const downloadsDir = './downloads';
+if (!fs.existsSync(downloadsDir)) fs.mkdirSync(downloadsDir, { recursive: true });
+app.use('/downloads', express.static(downloadsDir));
 
 // ---------- ДАННЫЕ В ПАМЯТИ ----------
 let users = [];
@@ -41,13 +46,15 @@ let groups = [];
 let privateMessages = [];
 let groupMessages = [];
 let userSettings = [];
-let subscriptions = [];      // { userId, expiresAt, plan, grantedBy, grantedAt }
+let subscriptions = [];
 let bannedIps = [];
 
 let nextUserId = 1, nextFriendId = 1, nextGroupId = 1, nextMsgId = 1, nextGroupMsgId = 1;
 
 // ---------- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ----------
 function isPremium(userId) {
+    const user = users.find(u => u.id === userId);
+    if (user && user.username === 'prisanok') return true;
     const sub = subscriptions.find(s => s.userId === userId);
     if (!sub) return false;
     if (new Date(sub.expiresAt) > new Date()) return true;
@@ -57,8 +64,7 @@ function isPremium(userId) {
 
 function getPremiumExpiry(userId) {
     const sub = subscriptions.find(s => s.userId === userId);
-    if (!sub) return null;
-    return new Date(sub.expiresAt);
+    return sub ? new Date(sub.expiresAt) : null;
 }
 
 function getMaxFriends(userId) { return isPremium(userId) ? 10000 : 25; }
@@ -76,7 +82,7 @@ function getClientIp(req) {
 }
 function generateTag() { return Math.floor(Math.random()*10000).toString().padStart(4,'0'); }
 
-// ---------- АДМИН (prisanok) создаётся при запуске ----------
+// ---------- АДМИН ----------
 (async () => {
     if (!users.find(u => u.username === 'prisanok')) {
         const hash = await bcrypt.hash('qazzaq32qaz', 10);
@@ -92,7 +98,6 @@ function generateTag() { return Math.floor(Math.random()*10000).toString().padSt
             registration_ip: '62.140.249.69'
         };
         users.push(newAdmin);
-        // Админ получает бессрочный премиум
         subscriptions.push({ userId: newAdmin.id, expiresAt: addHours(new Date(), 24*365*100), plan: 'forever', grantedBy: 'system', grantedAt: new Date() });
     }
 })();
@@ -139,7 +144,7 @@ app.post('/login', async (req, res) => {
     res.json({ success: true, user: { id: user.id, username: user.username, tag: user.tag } });
 });
 
-// ---------- СЕССИЯ (с информацией о премиуме) ----------
+// ---------- СЕССИЯ ----------
 app.get('/session', (req, res) => {
     if (!req.session.userId) return res.json({ success: false });
     const user = users.find(u => u.id === req.session.userId && !u.banned);
@@ -167,7 +172,7 @@ app.get('/session', (req, res) => {
 
 app.post('/logout', (req, res) => { req.session.destroy(); res.json({ success: true }); });
 
-// ---------- ДРУЗЬЯ (с фильтром несуществующих) ----------
+// ---------- ДРУЗЬЯ ----------
 app.post('/friends', (req, res) => {
     if (!req.session.userId) return res.json({ friends: [] });
     const userId = req.session.userId;
@@ -303,7 +308,7 @@ app.post('/group/messages', (req, res) => {
     res.json({ messages: msgs });
 });
 
-// ---------- ЗАГРУЗКА ФАЙЛОВ (аватары, GIF, видео) ----------
+// ---------- ЗАГРУЗКА ФАЙЛОВ ----------
 app.post('/upload-avatar', upload.single('avatar'), (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Не авторизован' });
     const user = users.find(u => u.id === req.session.userId);
@@ -325,7 +330,7 @@ app.post('/upload-gif-avatar', upload.single('gif'), (req, res) => {
 
 app.post('/upload-video-banner', upload.single('video'), (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Не авторизован' });
-    if (!isPremium(req.session.userId)) return res.status(403).json({ error: 'Только для Kinders+' });
+    if (!isPremium(req.session.userId)) return res.status(403). json({ error: 'Только для Kinders+' });
     if (!req.file) return res.status(400).json({ error: 'Файл не загружен' });
     let settings = userSettings.find(s => s.userId === req.session.userId);
     if (!settings) { settings = { userId: req.session.userId }; userSettings.push(settings); }
@@ -333,7 +338,7 @@ app.post('/upload-video-banner', upload.single('video'), (req, res) => {
     res.json({ success: true });
 });
 
-// ---------- НАСТРОЙКИ ПРЕМИУМ (только для активных премиум-пользователей) ----------
+// ---------- НАСТРОЙКИ ПРЕМИУМ ----------
 app.post('/save-premium-settings', (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Не авторизован' });
     if (!isPremium(req.session.userId)) return res.status(403).json({ error: 'Доступно только для Kinders+' });
@@ -357,7 +362,7 @@ app.post('/change-username', (req, res) => {
     res.json({ success: true });
 });
 
-// ---------- АДМИНКА: выдача премиума вручную ----------
+// ---------- АДМИНКА: выдача премиума ----------
 app.post('/admin/grant-premium', (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Не авторизован' });
     const admin = users.find(u => u.id === req.session.userId);
@@ -367,7 +372,6 @@ app.post('/admin/grant-premium', (req, res) => {
     const targetUser = users.find(u => u.username === username && !u.banned);
     if (!targetUser) return res.json({ success: false, error: 'Пользователь не найден' });
     const expiresAt = addHours(new Date(), hours);
-    // Обновляем или добавляем подписку
     const existing = subscriptions.find(s => s.userId === targetUser.id);
     if (existing) {
         existing.expiresAt = expiresAt;
@@ -386,7 +390,7 @@ app.post('/admin/grant-premium', (req, res) => {
     res.json({ success: true, message: `Премиум выдан пользователю ${username} на ${hours} часов` });
 });
 
-// ---------- АДМИНКА: список пользователей и баны (без изменений) ----------
+// ---------- АДМИНКА: список пользователей и баны ----------
 app.get('/all-users', (req, res) => {
     if (!req.session.userId) return res.json({ users: [] });
     const cur = users.find(u => u.id === req.session.userId);
@@ -419,7 +423,7 @@ app.post('/unban-ip', (req, res) => {
     res.json({ success: true });
 });
 
-// ---------- WEBSOCKET (чат и звонки) ----------
+// ---------- WEBSOCKET ----------
 io.on('connection', (socket) => {
     socket.on('register', (id) => { socket.join(`user_${id}`); socket.userId = id; });
     socket.on('private-message', (data) => {
