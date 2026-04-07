@@ -5,11 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kinders+ — Премиум подписка</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Inter', system-ui, -apple-system, sans-serif;
             background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 100%);
@@ -17,33 +13,11 @@
             color: #e8edf5;
             padding: 40px 20px;
         }
-        .container {
-            max-width: 1300px;
-            margin: 0 auto;
-        }
-        .header {
-            text-align: center;
-            margin-bottom: 50px;
-            animation: fadeInDown 0.6s ease;
-        }
-        .header h1 {
-            font-size: 52px;
-            background: linear-gradient(135deg, #FFD700, #FFA500);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-            margin-bottom: 15px;
-        }
-        .header p {
-            color: #9aa4bf;
-            font-size: 18px;
-        }
-        .pricing-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
-            gap: 30px;
-            margin-bottom: 70px;
-        }
+        .container { max-width: 1300px; margin: 0 auto; }
+        .header { text-align: center; margin-bottom: 50px; animation: fadeInDown 0.6s ease; }
+        .header h1 { font-size: 52px; background: linear-gradient(135deg, #FFD700, #FFA500); -webkit-background-clip: text; background-clip: text; color: transparent; margin-bottom: 15px; }
+        .header p { color: #9aa4bf; font-size: 18px; }
+        .pricing-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 30px; margin-bottom: 70px; }
         .card {
             background: rgba(30, 34, 41, 0.8);
             backdrop-filter: blur(10px);
@@ -55,159 +29,32 @@
             animation: fadeInUp 0.6s ease;
             animation-fill-mode: both;
         }
-        .card:hover {
-            transform: translateY(-10px);
-            box-shadow: 0 25px 40px rgba(0,0,0,0.4);
-            border-color: #FFD700;
-        }
-        .card.popular {
-            background: linear-gradient(135deg, rgba(255,215,0,0.15), rgba(255,165,0,0.15));
-            border: 2px solid #FFD700;
-            transform: scale(1.02);
-        }
-        .badge {
-            display: inline-block;
-            background: #FFD700;
-            color: #1a1a2e;
-            font-size: 12px;
-            font-weight: bold;
-            padding: 4px 12px;
-            border-radius: 50px;
-            margin-bottom: 15px;
-        }
-        .plan-name {
-            font-size: 28px;
-            font-weight: 800;
-            margin-bottom: 10px;
-        }
-        .price {
-            font-size: 40px;
-            font-weight: 800;
-            margin: 20px 0;
-            color: #FFD700;
-        }
-        .price span {
-            font-size: 16px;
-            font-weight: normal;
-            color: #9aa4bf;
-        }
-        .old-price {
-            font-size: 16px;
-            text-decoration: line-through;
-            color: #ff6b6b;
-            margin-left: 8px;
-        }
-        .saving {
-            font-size: 13px;
-            color: #6bdd8c;
-            margin-top: -15px;
-            margin-bottom: 20px;
-        }
-        .features {
-            list-style: none;
-            margin: 25px 0;
-            text-align: left;
-            padding: 0 15px;
-        }
-        .features li {
-            padding: 8px 0;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 14px;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
-        }
-        .features li::before {
-            content: "✓";
-            color: #6bdd8c;
-            font-weight: bold;
-            font-size: 16px;
-        }
-        .btn-buy {
-            background: linear-gradient(135deg, #FFD700, #FFA500);
-            border: none;
-            width: 100%;
-            padding: 14px;
-            border-radius: 50px;
-            font-weight: bold;
-            font-size: 16px;
-            cursor: pointer;
-            transition: 0.2s;
-            color: #1a1a2e;
-            margin-top: 10px;
-        }
-        .btn-buy:hover {
-            transform: scale(1.02);
-            filter: brightness(1.05);
-        }
-        .all-features {
-            background: rgba(30, 34, 41, 0.6);
-            border-radius: 40px;
-            padding: 40px;
-            margin: 40px 0;
-            text-align: center;
-            border: 1px solid rgba(255,215,0,0.2);
-        }
-        .all-features h2 {
-            font-size: 32px;
-            margin-bottom: 30px;
-            color: #FFD700;
-        }
-        .features-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 25px;
-            text-align: left;
-        }
-        .feature-item {
-            background: rgba(0,0,0,0.3);
-            padding: 20px;
-            border-radius: 24px;
-            transition: 0.2s;
-        }
-        .feature-item:hover {
-            background: rgba(255,215,0,0.1);
-            transform: translateY(-4px);
-        }
-        .feature-icon {
-            font-size: 32px;
-            margin-bottom: 12px;
-        }
-        .feature-title {
-            font-size: 18px;
-            font-weight: bold;
-            margin-bottom: 8px;
-            color: #FFD700;
-        }
-        .feature-desc {
-            font-size: 14px;
-            color: #c0c0d0;
-            line-height: 1.4;
-        }
-        .back-link {
-            display: inline-block;
-            margin-top: 30px;
-            color: #FFD700;
-            text-decoration: none;
-            font-weight: 500;
-            transition: 0.2s;
-        }
-        .back-link:hover {
-            text-decoration: underline;
-        }
-        @keyframes fadeInDown {
-            from { opacity: 0; transform: translateY(-30px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes fadeInUp {
-            from { opacity: 0; transform: translateY(30px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        @media (max-width: 700px) {
-            body { padding: 20px; }
-            .header h1 { font-size: 36px; }
-            .all-features { padding: 20px; }
-        }
+        .card:hover { transform: translateY(-10px); box-shadow: 0 25px 40px rgba(0,0,0,0.4); border-color: #FFD700; }
+        .card.popular { background: linear-gradient(135deg, rgba(255,215,0,0.15), rgba(255,165,0,0.15)); border: 2px solid #FFD700; transform: scale(1.02); }
+        .badge { display: inline-block; background: #FFD700; color: #1a1a2e; font-size: 12px; font-weight: bold; padding: 4px 12px; border-radius: 50px; margin-bottom: 15px; }
+        .plan-name { font-size: 28px; font-weight: 800; margin-bottom: 10px; }
+        .price { font-size: 40px; font-weight: 800; margin: 20px 0; color: #FFD700; }
+        .price span { font-size: 16px; font-weight: normal; color: #9aa4bf; }
+        .old-price { font-size: 16px; text-decoration: line-through; color: #ff6b6b; margin-left: 8px; }
+        .saving { font-size: 13px; color: #6bdd8c; margin-top: -15px; margin-bottom: 20px; }
+        .features { list-style: none; margin: 25px 0; text-align: left; padding: 0 15px; }
+        .features li { padding: 8px 0; display: flex; align-items: center; gap: 10px; font-size: 14px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .features li::before { content: "✓"; color: #6bdd8c; font-weight: bold; font-size: 16px; }
+        .btn-buy { background: linear-gradient(135deg, #FFD700, #FFA500); border: none; width: 100%; padding: 14px; border-radius: 50px; font-weight: bold; font-size: 16px; cursor: pointer; transition: 0.2s; color: #1a1a2e; margin-top: 10px; }
+        .btn-buy:hover { transform: scale(1.02); filter: brightness(1.05); }
+        .all-features { background: rgba(30, 34, 41, 0.6); border-radius: 40px; padding: 40px; margin: 40px 0; text-align: center; border: 1px solid rgba(255,215,0,0.2); }
+        .all-features h2 { font-size: 32px; margin-bottom: 30px; color: #FFD700; }
+        .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 25px; text-align: left; }
+        .feature-item { background: rgba(0,0,0,0.3); padding: 20px; border-radius: 24px; transition: 0.2s; }
+        .feature-item:hover { background: rgba(255,215,0,0.1); transform: translateY(-4px); }
+        .feature-icon { font-size: 32px; margin-bottom: 12px; }
+        .feature-title { font-size: 18px; font-weight: bold; margin-bottom: 8px; color: #FFD700; }
+        .feature-desc { font-size: 14px; color: #c0c0d0; line-height: 1.4; }
+        .back-link { display: inline-block; margin-top: 30px; color: #FFD700; text-decoration: none; font-weight: 500; transition: 0.2s; }
+        .back-link:hover { text-decoration: underline; }
+        @keyframes fadeInDown { from { opacity: 0; transform: translateY(-30px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+        @media (max-width: 700px) { body { padding: 20px; } .header h1 { font-size: 36px; } .all-features { padding: 20px; } }
     </style>
 </head>
 <body>
@@ -222,67 +69,31 @@
             <div class="plan-name">🔥 Неделя</div>
             <div class="price">49 ₽<span>/нед</span></div>
             <div class="saving">Попробуй премиум</div>
-            <ul class="features">
-                <li>Кастомный цвет ника</li>
-                <li>Эксклюзивный значок 🎨</li>
-                <li>Группы до 30 человек</li>
-                <li>Безлимит друзей</li>
-                <li>Анимированные аватарки (GIF)</li>
-                <li>Видео-баннер профиля</li>
-                <li>Приоритетная поддержка</li>
-            </ul>
+            <ul class="features"><li>Кастомный цвет ника</li><li>Эксклюзивный значок 🎨</li><li>Группы до 30 человек</li><li>Безлимит друзей</li><li>Анимированные аватарки (GIF)</li><li>Видео-баннер профиля</li><li>Приоритетная поддержка</li></ul>
             <button class="btn-buy" data-plan="week">Купить за 49 ₽</button>
         </div>
-
         <div class="card popular">
             <div class="badge">🔥 Популярный</div>
             <div class="plan-name">⭐ Месяц</div>
             <div class="price">149 ₽<span>/мес</span></div>
             <div class="saving">Экономия ~30% по сравнению с неделей</div>
-            <ul class="features">
-                <li>Кастомный цвет ника</li>
-                <li>Эксклюзивный значок 🎨</li>
-                <li>Группы до 50 человек</li>
-                <li>Безлимит друзей</li>
-                <li>Анимированные аватарки (GIF)</li>
-                <li>Видео-баннер профиля</li>
-                <li>Приоритетная поддержка</li>
-            </ul>
+            <ul class="features"><li>Кастомный цвет ника</li><li>Эксклюзивный значок 🎨</li><li>Группы до 50 человек</li><li>Безлимит друзей</li><li>Анимированные аватарки (GIF)</li><li>Видео-баннер профиля</li><li>Приоритетная поддержка</li></ul>
             <button class="btn-buy" data-plan="month">Купить за 149 ₽</button>
         </div>
-
         <div class="card">
             <div class="plan-name">💎 Год</div>
             <div class="price">1 290 ₽<span>/год</span></div>
             <div class="old-price">1 788 ₽</div>
             <div class="saving">Экономия 498 ₽ (2 месяца бесплатно)</div>
-            <ul class="features">
-                <li>Все преимущества Plus</li>
-                <li>Эксклюзивный значок 💎</li>
-                <li>Группы до 100 человек</li>
-                <li>Безлимит друзей</li>
-                <li>Анимированные аватарки (GIF)</li>
-                <li>Видео-баннер профиля</li>
-                <li>Приоритетная поддержка</li>
-            </ul>
+            <ul class="features"><li>Все преимущества Plus</li><li>Эксклюзивный значок 💎</li><li>Группы до 100 человек</li><li>Безлимит друзей</li><li>Анимированные аватарки (GIF)</li><li>Видео-баннер профиля</li><li>Приоритетная поддержка</li></ul>
             <button class="btn-buy" data-plan="year">Купить за 1 290 ₽</button>
         </div>
-
         <div class="card">
             <div class="plan-name">👑 Навсегда</div>
             <div class="price">4 990 ₽<span>/ lifetime</span></div>
             <div class="old-price">9 999 ₽</div>
             <div class="saving">Пожизненная подписка, скидка 50%</div>
-            <ul class="features">
-                <li>Все преимущества Plus</li>
-                <li>Эксклюзивный значок 👑</li>
-                <li>Группы до 200 человек</li>
-                <li>Безлимит друзей</li>
-                <li>Анимированные аватарки (GIF)</li>
-                <li>Видео-баннер профиля</li>
-                <li>Доступ к бета-функциям</li>
-                <li>Имя в Зале Славы</li>
-            </ul>
+            <ul class="features"><li>Все преимущества Plus</li><li>Эксклюзивный значок 👑</li><li>Группы до 200 человек</li><li>Безлимит друзей</li><li>Анимированные аватарки (GIF)</li><li>Видео-баннер профиля</li><li>Доступ к бета-функциям</li><li>Имя в Зале Славы</li></ul>
             <button class="btn-buy" data-plan="forever">Купить навсегда</button>
         </div>
     </div>
@@ -301,9 +112,7 @@
         </div>
     </div>
 
-    <div style="text-align: center;">
-        <a href="index.html" class="back-link">← Вернуться в чат</a>
-    </div>
+    <div style="text-align: center;"><a href="index.html" class="back-link">← Вернуться в чат</a></div>
 </div>
 
 <script>
@@ -316,7 +125,6 @@
             });
             const data = await res.json();
             if (data.success && data.redirectUrl) {
-                // Переход на страницу оплаты ЮMoney
                 window.location.href = data.redirectUrl;
             } else {
                 alert('Ошибка: ' + (data.error || 'попробуйте позже'));
@@ -325,7 +133,6 @@
             alert('Ошибка соединения с сервером');
         }
     }
-
     document.querySelectorAll('.btn-buy').forEach(btn => {
         const plan = btn.getAttribute('data-plan');
         btn.addEventListener('click', () => buyPlan(plan));
